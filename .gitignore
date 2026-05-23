@@ -1,0 +1,29 @@
+# Dependencies
+**/node_modules/
+
+# Expo
+**/dist/
+**/web-build/
+**/.expo/
+frontend/expo-env.d.ts
+
+# Native builds
+frontend/ios/
+frontend/android/
+
+# Local env files
+.env
+.env*.local
+
+# Editor / IDE configuration
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# System / Temporary files
+.DS_Store
+Thumbs.db
