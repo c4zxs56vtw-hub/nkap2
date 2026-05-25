@@ -317,13 +317,21 @@ export default function KycStepThreeScreen() {
                 <MaterialCommunityIcons name="view-dashboard-outline" size={22} color="#3d494c" />
                 <Text style={styles.navLabel}>Dashboard</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.navItem}
+                activeOpacity={0.8}
+                onPress={() => router.replace('/transfers' as never)}
+              >
                 <MaterialCommunityIcons name="send-outline" size={22} color="#3d494c" />
                 <Text style={styles.navLabel}>Transfer</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
-                <MaterialCommunityIcons name="credit-card-outline" size={22} color="#3d494c" />
-                <Text style={styles.navLabel}>Cards</Text>
+              <TouchableOpacity
+                style={styles.navItem}
+                activeOpacity={0.8}
+                onPress={() => router.replace('/tontine-messages' as never)}
+              >
+                <MaterialCommunityIcons name="forum-outline" size={22} color="#3d494c" />
+                <Text style={styles.navLabel}>Messagerie</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.navItem, styles.navItemActive]}

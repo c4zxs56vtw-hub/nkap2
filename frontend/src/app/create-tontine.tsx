@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useResponsive } from '../hooks/use-responsive';
+import { safeGoBack } from '../utils/safeNavigation';
 
 type TontineType = 'privee' | 'publique';
 type RuleType = 'amende' | 'retenue';
@@ -73,7 +74,7 @@ export default function CreateTontineScreen() {
               <TouchableOpacity
                 style={styles.backButton}
                 activeOpacity={0.85}
-                onPress={() => router.back()}
+                onPress={() => safeGoBack(router)}
               >
                 <Ionicons name="arrow-back" size={24} color="#00687a" />
               </TouchableOpacity>

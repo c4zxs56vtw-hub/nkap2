@@ -1,20 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { authService } from '../services/authService';
 import { useResponsive } from '../hooks/use-responsive';
+
+export const ADMIN_MODE_KEY = 'nkap_admin_mode';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -25,31 +28,48 @@ export default function ProfileScreen() {
   const [linkedMomoPhone, setLinkedMomoPhone] = useState('');
   const [linkedBankName, setLinkedBankName] = useState('');
   const [userStatus, setUserStatus] = useState('');
+  const [isAdminMode, setIsAdminMode] = useState(false);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const [method, momoPhone, bankName, status, adminMode] = await Promise.all([
+        SecureStore.getItemAsync('linked_account_method'),
+        SecureStore.getItemAsync('linked_momo_phone'),
+        SecureStore.getItemAsync('linked_bank_name'),
+        SecureStore.getItemAsync('user_status'),
+        SecureStore.getItemAsync(ADMIN_MODE_KEY),
+      ]);
+      setLinkedMethod(method ?? '');
+      setLinkedMomoPhone(momoPhone ?? '');
+      setLinkedBankName(bankName ?? '');
+      setUserStatus(status ?? '');
+      setIsAdminMode(adminMode === 'true');
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    const loadProfile = async () => {
-      try {
-        const [method, momoPhone, bankName, status] = await Promise.all([
-          SecureStore.getItemAsync('linked_account_method'),
-          SecureStore.getItemAsync('linked_momo_phone'),
-          SecureStore.getItemAsync('linked_bank_name'),
-          SecureStore.getItemAsync('user_status'),
-        ]);
-        if (!active) return;
-        setLinkedMethod(method ?? '');
-        setLinkedMomoPhone(momoPhone ?? '');
-        setLinkedBankName(bankName ?? '');
-        setUserStatus(status ?? '');
-      } catch {
-        // silently fail
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
     loadProfile();
-    return () => { active = false; };
-  }, []);
+  }, [loadProfile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile])
+  );
+
+  const handleAdminModeToggle = async (enabled: boolean) => {
+    setIsAdminMode(enabled);
+    try {
+      await SecureStore.setItemAsync(ADMIN_MODE_KEY, enabled ? 'true' : 'false');
+    } catch {
+      Alert.alert('Erreur', 'Impossible d’enregistrer le mode administrateur.');
+      setIsAdminMode(!enabled);
+    }
+  };
 
   const accountLabel = (() => {
     if (linkedMethod === 'bank' && linkedBankName) return linkedBankName;
@@ -115,8 +135,8 @@ export default function ProfileScreen() {
                   <Text style={styles.sidebarTitle}>Navigation</Text>
                   {[
                     { icon: 'view-dashboard-outline', label: 'Dashboard', active: false, route: '/dashboard' },
-                    { icon: 'send-outline', label: 'Transfer', active: false, route: null },
-                    { icon: 'credit-card-outline', label: 'Cards', active: false, route: null },
+                    { icon: 'send-outline', label: 'Transfer', active: false, route: '/transfers' },
+                    { icon: 'forum-outline', label: 'Messagerie', active: false, route: '/tontine-messages' },
                     { icon: 'account', label: 'Profile', active: true, route: '/profile' },
                   ].map((item) => (
                     <TouchableOpacity
@@ -147,6 +167,8 @@ export default function ProfileScreen() {
                   accountLabel={accountLabel}
                   router={router}
                   handleLogout={handleLogout}
+                  isAdminMode={isAdminMode}
+                  onAdminModeToggle={handleAdminModeToggle}
                 />
               </View>
             </View>
@@ -159,6 +181,8 @@ export default function ProfileScreen() {
                 accountLabel={accountLabel}
                 router={router}
                 handleLogout={handleLogout}
+                isAdminMode={isAdminMode}
+                onAdminModeToggle={handleAdminModeToggle}
               />
             </View>
           )}
@@ -176,13 +200,21 @@ export default function ProfileScreen() {
                 <MaterialCommunityIcons name="view-dashboard-outline" size={22} color="#3d494c" />
                 <Text style={styles.navLabel}>Dashboard</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.navItem}
+                activeOpacity={0.8}
+                onPress={() => router.replace('/transfers' as never)}
+              >
                 <MaterialCommunityIcons name="send-outline" size={22} color="#3d494c" />
                 <Text style={styles.navLabel}>Transfer</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
-                <MaterialCommunityIcons name="credit-card-outline" size={22} color="#3d494c" />
-                <Text style={styles.navLabel}>Cards</Text>
+              <TouchableOpacity
+                style={styles.navItem}
+                activeOpacity={0.8}
+                onPress={() => router.replace('/tontine-messages' as never)}
+              >
+                <MaterialCommunityIcons name="forum-outline" size={22} color="#3d494c" />
+                <Text style={styles.navLabel}>Messagerie</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.navItem, styles.navItemActive]}
@@ -201,14 +233,23 @@ export default function ProfileScreen() {
 }
 
 function ProfileContent({
-  loading, userStatus, linkedMethod, accountLabel, router, handleLogout,
+  loading,
+  userStatus,
+  linkedMethod,
+  accountLabel,
+  router,
+  handleLogout,
+  isAdminMode,
+  onAdminModeToggle,
 }: {
   loading: boolean;
   userStatus: string;
   linkedMethod: string;
   accountLabel: string;
-  router: any;
+  router: ReturnType<typeof useRouter>;
   handleLogout: () => void;
+  isAdminMode: boolean;
+  onAdminModeToggle: (enabled: boolean) => void;
 }) {
   return (
     <>
@@ -313,7 +354,7 @@ function ProfileContent({
         <TouchableOpacity
           style={styles.actionRow}
           activeOpacity={0.8}
-          onPress={() => router.replace('/auth/kyc-step-2' as never)}
+          onPress={() => router.push('/auth/kyc-step-2' as never)}
         >
           <View style={[styles.actionIcon, { backgroundColor: '#6cf8bb33' }]}>
             <MaterialCommunityIcons name="link-variant" size={20} color="#006c49" />
@@ -329,6 +370,79 @@ function ProfileContent({
           <MaterialCommunityIcons name="logout" size={18} color="#ffffff" />
           <Text style={styles.logoutText}>Se déconnecter</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Assistance & Rôles */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Assistance & Rôles</Text>
+      </View>
+      <View style={styles.actionsCard}>
+        <TouchableOpacity
+          style={styles.actionRow}
+          activeOpacity={0.8}
+          onPress={() => router.push('/tontine-messages' as never)}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: '#10b9811a' }]}>
+            <MaterialCommunityIcons name="forum-outline" size={20} color="#006c49" />
+          </View>
+          <View style={styles.actionTextBlock}>
+            <Text style={styles.actionTitle}>Messagerie de groupe</Text>
+            <Text style={styles.actionSubtitle}>Discuter avec les membres de vos tontines</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color="#6d797d" />
+        </TouchableOpacity>
+        <View style={styles.actionDivider} />
+        <TouchableOpacity
+          style={styles.actionRow}
+          activeOpacity={0.8}
+          onPress={() => router.push('/admin-chat' as never)}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: '#0284c71a' }]}>
+            <MaterialCommunityIcons name="message-text-outline" size={20} color="#0284c7" />
+          </View>
+          <View style={styles.actionTextBlock}>
+            <Text style={styles.actionTitle}>Contacter le support admin</Text>
+            <Text style={styles.actionSubtitle}>Discussion en direct avec Support Nkap</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color="#6d797d" />
+        </TouchableOpacity>
+        <View style={styles.actionDivider} />
+        <View style={styles.actionRow}>
+          <View style={[styles.actionIcon, { backgroundColor: '#db27771a' }]}>
+            <MaterialCommunityIcons name="shield-account-outline" size={20} color="#db2777" />
+          </View>
+          <View style={styles.actionTextBlock}>
+            <Text style={styles.actionTitle}>Mode Administrateur</Text>
+            <Text style={styles.actionSubtitle}>
+              {isAdminMode ? 'Portail admin activé' : 'Désactivé — usage démo uniquement'}
+            </Text>
+          </View>
+          <Switch
+            value={isAdminMode}
+            onValueChange={onAdminModeToggle}
+            trackColor={{ false: '#cbd5e1', true: '#fbcfe8' }}
+            thumbColor={isAdminMode ? '#db2777' : '#f8fafc'}
+          />
+        </View>
+        {isAdminMode && (
+          <>
+            <View style={styles.actionDivider} />
+            <TouchableOpacity
+              style={styles.actionRow}
+              activeOpacity={0.8}
+              onPress={() => router.push('/admin-dashboard' as never)}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: '#fce7f3' }]}>
+                <MaterialCommunityIcons name="shield-crown-outline" size={20} color="#db2777" />
+              </View>
+              <View style={styles.actionTextBlock}>
+                <Text style={styles.actionTitle}>Portail Administration Nkap</Text>
+                <Text style={styles.actionSubtitle}>Gérer les utilisateurs, KYC et annonces</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={22} color="#6d797d" />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </>
   );

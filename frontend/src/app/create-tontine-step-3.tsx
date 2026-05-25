@@ -12,6 +12,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useResponsive } from '../hooks/use-responsive';
+import { safeGoBack } from '../utils/safeNavigation';
+import { createInviteFromTontineName } from '../services/qrInviteService';
 
 export default function CreateTontineStep3Screen() {
   const router = useRouter();
@@ -58,10 +60,24 @@ export default function CreateTontineStep3Screen() {
     try {
       // TODO : appel API backend Django — POST /api/tontines/create/
       await new Promise((resolve) => setTimeout(resolve, 1500)); // simulation
+      const invite = await createInviteFromTontineName(
+        params.tontineName ?? 'Ma tontine',
+        params.type === 'privee'
+      );
       Alert.alert(
         'Tontine créée 🎉',
-        `"${params.tontineName}" a été créée avec succès. Les membres peuvent maintenant être invités.`,
-        [{ text: 'Voir le dashboard', onPress: () => router.replace('/dashboard' as never) }]
+        `"${params.tontineName}" a été créée. Partagez le QR d’invitation pour que les membres rejoignent.`,
+        [
+          {
+            text: 'Voir le QR d’invitation',
+            onPress: () =>
+              router.replace({
+                pathname: '/tontine-invite-qr',
+                params: { id: invite.tontineId },
+              } as never),
+          },
+          { text: 'Dashboard', onPress: () => router.replace('/dashboard' as never) },
+        ]
       );
     } catch {
       Alert.alert('Erreur', 'Impossible de créer la tontine. Veuillez réessayer.');
@@ -85,7 +101,7 @@ export default function CreateTontineStep3Screen() {
               <TouchableOpacity
                 style={styles.backButton}
                 activeOpacity={0.85}
-                onPress={() => router.back()}
+                onPress={() => safeGoBack(router, '/create-tontine-step-2')}
               >
                 <Ionicons name="arrow-back" size={24} color="#00687a" />
               </TouchableOpacity>

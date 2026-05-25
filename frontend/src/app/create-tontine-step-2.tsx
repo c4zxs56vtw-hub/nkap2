@@ -12,6 +12,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useResponsive } from '../hooks/use-responsive';
+import { safeGoBack } from '../utils/safeNavigation';
 
 const RIB_THRESHOLD = 2_000_000; // FCFA — seuil bascule MoMo → RIB
 
@@ -95,7 +96,7 @@ export default function CreateTontineStep2Screen() {
               <TouchableOpacity
                 style={styles.backButton}
                 activeOpacity={0.85}
-                onPress={() => router.back()}
+                onPress={() => safeGoBack(router, '/create-tontine')}
               >
                 <Ionicons name="arrow-back" size={24} color="#00687a" />
               </TouchableOpacity>

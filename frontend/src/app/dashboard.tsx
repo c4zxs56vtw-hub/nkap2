@@ -4,44 +4,12 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useResponsive } from '../hooks/use-responsive';
+import { MY_TONTINES } from '../services/tontineChatService';
 
 const QUICK_ACTIONS = [
   { label: 'Créer une tontine', icon: 'plus-circle-outline' as const, route: '/create-tontine' as const },
-  { label: 'Rejoindre', icon: 'account-multiple-plus-outline' as const },
-  { label: 'Scanner un QR', icon: 'qrcode-scan' as const },
-];
-
-const TONTINES = [
-  {
-    title: 'Voyage 2024',
-    subtitle: 'Collectif Famille',
-    amount: '450 000 FCFA',
-    total: '/ 1 000 000',
-    progress: 45,
-    icon: 'airplane' as const,
-    iconBg: '#06b6d41a',
-    iconColor: '#00687a',
-  },
-  {
-    title: 'Épargne Famille',
-    subtitle: 'Mensuel',
-    amount: '800 000 FCFA',
-    total: '/ 2 000 000',
-    progress: 40,
-    icon: 'home' as const,
-    iconBg: '#6cf8bb33',
-    iconColor: '#006c49',
-  },
-  {
-    title: 'Scolarité Septembre',
-    subtitle: 'Privé',
-    amount: '150 000 FCFA',
-    total: '/ 300 000',
-    progress: 50,
-    icon: 'school' as const,
-    iconBg: '#ffd9e41f',
-    iconColor: '#b4136d',
-  },
+  { label: 'Rejoindre', icon: 'account-multiple-plus-outline' as const, route: '/explorer-tontines' as const },
+  { label: 'Scanner un QR', icon: 'qrcode-scan' as const, route: '/scan-qr' as const },
 ];
 
 export default function DashboardScreen() {
@@ -94,8 +62,8 @@ export default function DashboardScreen() {
                   <Text style={styles.sidebarTitle}>Navigation</Text>
                   {[
                     { icon: 'view-dashboard', label: 'Dashboard', active: true, route: '/dashboard' },
-                    { icon: 'swap-horizontal', label: 'Transfer', active: false, route: null },
-                    { icon: 'credit-card-outline', label: 'Cards', active: false, route: null },
+                    { icon: 'swap-horizontal', label: 'Transfer', active: false, route: '/transfers' },
+                    { icon: 'forum-outline', label: 'Messagerie', active: false, route: '/tontine-messages' },
                     { icon: 'account-outline', label: 'Profile', active: false, route: '/profile' },
                   ].map((item) => (
                     <TouchableOpacity
@@ -141,13 +109,21 @@ export default function DashboardScreen() {
                 <MaterialCommunityIcons name="view-dashboard" size={24} color="#00424f" />
                 <Text style={[styles.navLabel, styles.navLabelActive]}>Dashboard</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.navItem}
+                activeOpacity={0.8}
+                onPress={() => router.replace('/transfers' as never)}
+              >
                 <MaterialCommunityIcons name="swap-horizontal" size={24} color="#3d494c" />
                 <Text style={styles.navLabel}>Transfer</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.navItem} activeOpacity={0.8}>
-                <MaterialCommunityIcons name="credit-card-outline" size={24} color="#3d494c" />
-                <Text style={styles.navLabel}>Cards</Text>
+              <TouchableOpacity
+                style={styles.navItem}
+                activeOpacity={0.8}
+                onPress={() => router.replace('/tontine-messages' as never)}
+              >
+                <MaterialCommunityIcons name="forum-outline" size={24} color="#3d494c" />
+                <Text style={styles.navLabel}>Messagerie</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.navItem}
@@ -211,25 +187,73 @@ function DashboardContent({ router, isWeb }: { router: any; isWeb: boolean }) {
       </View>
 
       <View style={[styles.cardsList, isWeb && styles.cardsListWeb]}>
-        {TONTINES.map((item) => (
-          <View key={item.title} style={[styles.tontineCard, isWeb && styles.tontineCardWeb]}>
-            <View style={styles.tontineHeader}>
-              <View style={styles.tontineLeft}>
-                <View style={[styles.tontineIconWrap, { backgroundColor: item.iconBg }]}>
-                  <MaterialCommunityIcons name={item.icon} size={20} color={item.iconColor} />
+        {MY_TONTINES.map((item) => (
+          <View key={item.id} style={[styles.tontineCard, isWeb && styles.tontineCardWeb]}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                router.push({
+                  pathname: '/tontine-chat',
+                  params: {
+                    id: item.id,
+                    title: item.title,
+                    amount: item.poolAmount,
+                    members: String(item.activeMembers),
+                  },
+                } as never);
+              }}
+            >
+              <View style={styles.tontineHeader}>
+                <View style={styles.tontineLeft}>
+                  <View style={[styles.tontineIconWrap, { backgroundColor: item.iconBg }]}>
+                    <MaterialCommunityIcons name={item.icon} size={20} color={item.iconColor} />
+                  </View>
+                  <View style={styles.tontineInfo}>
+                    <Text style={styles.tontineTitle}>{item.title}</Text>
+                    <Text style={styles.tontineSubtitle}>{item.subtitle}</Text>
+                  </View>
                 </View>
-                <View style={styles.tontineInfo}>
-                  <Text style={styles.tontineTitle}>{item.title}</Text>
-                  <Text style={styles.tontineSubtitle}>{item.subtitle}</Text>
+                <View style={styles.tontineRight}>
+                  <Text style={styles.tontineAmount}>{item.poolAmount}</Text>
+                  <Text style={styles.tontineTotal}>Cagnotte active</Text>
                 </View>
               </View>
-              <View style={styles.tontineRight}>
-                <Text style={styles.tontineAmount}>{item.amount}</Text>
-                <Text style={styles.tontineTotal}>{item.total}</Text>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${item.progress}%` }]} />
               </View>
-            </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${item.progress}%` }]} />
+            </TouchableOpacity>
+            <View style={styles.cardActionsRow}>
+              <TouchableOpacity
+                style={[styles.chatBtn, styles.cardActionHalf]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  router.push({
+                    pathname: '/tontine-chat',
+                    params: {
+                      id: item.id,
+                      title: item.title,
+                      amount: item.poolAmount,
+                      members: String(item.activeMembers),
+                    },
+                  } as never);
+                }}
+              >
+                <MaterialCommunityIcons name="forum-outline" size={16} color="#00687a" />
+                <Text style={styles.chatBtnText}>Discuter</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.inviteBtn, styles.cardActionHalf]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  router.push({
+                    pathname: '/tontine-invite-qr',
+                    params: { id: item.id },
+                  } as never);
+                }}
+              >
+                <MaterialCommunityIcons name="qrcode" size={16} color="#b4136d" />
+                <Text style={styles.inviteBtnText}>QR inviter</Text>
+              </TouchableOpacity>
             </View>
           </View>
         ))}
@@ -451,6 +475,32 @@ const styles = StyleSheet.create({
   tontineTotal: { marginTop: 2, color: '#6d797d', fontSize: 12 },
   progressTrack: { height: 8, borderRadius: 999, backgroundColor: '#dee3e6', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 999, backgroundColor: '#10B981' },
+  cardActionsRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  cardActionHalf: { flex: 1 },
+  chatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#e0f7fa',
+    borderWidth: 1,
+    borderColor: '#b2ebf2',
+  },
+  chatBtnText: { color: '#00687a', fontSize: 12, fontWeight: '700' },
+  inviteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#ffd9e41f',
+    borderWidth: 1,
+    borderColor: '#fbcfe8',
+  },
+  inviteBtnText: { color: '#b4136d', fontSize: 12, fontWeight: '700' },
   /* Bottom nav */
   bottomNav: {
     position: 'absolute',

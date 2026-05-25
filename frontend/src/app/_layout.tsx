@@ -11,6 +11,11 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="dashboard" />
+          <Stack.Screen name="transfers" />
+          <Stack.Screen name="scan-qr" />
+          <Stack.Screen name="join-tontine" />
+          <Stack.Screen name="join/[id]" />
+          <Stack.Screen name="tontine-invite-qr" />
           <Stack.Screen name="create-tontine" />
           <Stack.Screen name="create-tontine-step-2" />
           <Stack.Screen name="create-tontine-step-3" />
@@ -21,6 +26,10 @@ export default function RootLayout() {
           <Stack.Screen name="auth/register" />
           <Stack.Screen name="auth/kyc-pending" />
           <Stack.Screen name="explore" />
+          <Stack.Screen name="tontine-messages" />
+          <Stack.Screen name="tontine-chat" />
+          <Stack.Screen name="admin-chat" />
+          <Stack.Screen name="admin-dashboard" />
         </Stack>
       </ThemeProvider>
     </SafeAreaProvider>
