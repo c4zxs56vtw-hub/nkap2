@@ -29,6 +29,8 @@ class UserSerializer(serializers.ModelSerializer):
             "trust_score",
             "kyc_status",
             "kyc_rejection_reason",
+            "identity_document",
+            "mobile_money_number",
             "is_blacklisted",
             "is_active",
             "blacklisted_reason",

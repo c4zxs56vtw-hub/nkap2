@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useResponsive } from '../../hooks/use-responsive';
+import { authService } from '../../services/authService';
 
 type AccountTab = 'momo' | 'bank';
 
@@ -57,9 +58,21 @@ export default function KycStepThreeScreen() {
     setSaving(true);
     try {
       await saveLink({ linked_account_method: 'momo', linked_momo_phone: normalizedPhone });
+      
+      const imageUri = await SecureStore.getItemAsync('kyc_identity_document_uri');
+      const fullName = await SecureStore.getItemAsync('user_full_name');
+      
+      if (imageUri) {
+        const kycResponse = await authService.submitKyc(imageUri, fullName || 'Utilisateur Nkap', normalizedPhone);
+        if (kycResponse?.status === 'PENDING') {
+          router.replace('/auth/kyc-pending' as never);
+          return;
+        }
+      }
+      
       router.replace('/dashboard' as never);
-    } catch {
-      Alert.alert('Erreur', "Impossible d'enregistrer votre compte Mobile Money.");
+    } catch (error: any) {
+      Alert.alert('Échec de soumission KYC', error.message || "Impossible d'enregistrer votre dossier.");
     } finally {
       setSaving(false);
     }
@@ -89,9 +102,21 @@ export default function KycStepThreeScreen() {
         linked_bank_account: normalizedAccount,
         linked_bank_key: normalizedKey,
       });
+
+      const imageUri = await SecureStore.getItemAsync('kyc_identity_document_uri');
+      const fullName = await SecureStore.getItemAsync('user_full_name');
+      
+      if (imageUri) {
+        const kycResponse = await authService.submitKyc(imageUri, fullName || 'Utilisateur Nkap', normalizedAccount);
+        if (kycResponse?.status === 'PENDING') {
+          router.replace('/auth/kyc-pending' as never);
+          return;
+        }
+      }
+
       router.replace('/dashboard' as never);
-    } catch {
-      Alert.alert('Erreur', "Impossible d'enregistrer votre compte bancaire.");
+    } catch (error: any) {
+      Alert.alert('Échec de soumission KYC', error.message || "Impossible d'enregistrer votre dossier.");
     } finally {
       setSaving(false);
     }

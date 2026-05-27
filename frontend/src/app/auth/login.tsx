@@ -35,9 +35,10 @@ export default function LoginScreen() {
     try {
       const data = await authService.login(phone, pin);
       const status = String(data?.status ?? '').toUpperCase();
+      const hasUploadedDoc = !!data?.user?.identity_document;
       if (status === 'VERIFIED') {
         router.replace('/dashboard' as never);
-      } else if (status === 'PENDING' || status === 'UNDER_REVIEW' || status === 'SUBMITTED') {
+      } else if (hasUploadedDoc && (status === 'PENDING' || status === 'UNDER_REVIEW' || status === 'SUBMITTED')) {
         router.replace('/auth/kyc-pending' as never);
       } else {
         router.replace('/auth/kyc' as never);

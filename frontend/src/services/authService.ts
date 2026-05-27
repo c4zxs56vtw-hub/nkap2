@@ -18,6 +18,9 @@ export const authService = {
         await SecureStore.setItemAsync('user_token', response.data.token);
         // Optionnel : Sauvegarder le statut KYC (PENDING, VERIFIED) localement
         await SecureStore.setItemAsync('user_status', response.data.status);
+        if (response.data.user?.full_name) {
+          await SecureStore.setItemAsync('user_full_name', response.data.user.full_name);
+        }
       }
       
       return response.data;
@@ -41,6 +44,9 @@ export const authService = {
       if (response.data.token) {
         await SecureStore.setItemAsync('user_token', response.data.token);
         await SecureStore.setItemAsync('user_status', response.data.status);
+        if (response.data.user?.full_name) {
+          await SecureStore.setItemAsync('user_full_name', response.data.user.full_name);
+        }
       }
 
       return response.data;
@@ -89,6 +95,7 @@ export const authService = {
   logout: async () => {
     await SecureStore.deleteItemAsync('user_token');
     await SecureStore.deleteItemAsync('user_status');
+    await SecureStore.deleteItemAsync('user_full_name');
     await SecureStore.deleteItemAsync('kyc_identity_document_uri');
   }
 };
