@@ -2,6 +2,26 @@
 import api from './api';
 import * as SecureStore from 'expo-secure-store';
 
+const formatError = (error: any, defaultMsg: string): string => {
+  if (error.response?.data) {
+    const data = error.response.data;
+    if (typeof data === 'object') {
+      if (data.detail) {
+        return String(data.detail);
+      }
+      const messages = Object.entries(data).map(([field, errs]) => {
+        const label = field === 'phone_number' ? 'Téléphone' : field === 'pin' ? 'PIN' : field === 'full_name' ? 'Nom' : field;
+        const detail = Array.isArray(errs) ? errs.join(', ') : String(errs);
+        return `${label} : ${detail}`;
+      });
+      if (messages.length > 0) {
+        return messages.join('\n');
+      }
+    }
+  }
+  return error.message || defaultMsg;
+};
+
 export const authService = {
   /**
    * Envoie le numéro et le code PIN au backend Django
@@ -25,8 +45,7 @@ export const authService = {
       
       return response.data;
     } catch (error: any) {
-      const serverMessage = error.response?.data?.detail || "Identifiants invalides ou erreur serveur";
-      throw new Error(serverMessage);
+      throw new Error(formatError(error, "Identifiants invalides ou erreur serveur"));
     }
   },
 
@@ -51,8 +70,7 @@ export const authService = {
 
       return response.data;
     } catch (error: any) {
-      const serverMessage = error.response?.data?.detail || "Impossible de créer le compte";
-      throw new Error(serverMessage);
+      throw new Error(formatError(error, "Impossible de créer le compte"));
     }
   },
 
