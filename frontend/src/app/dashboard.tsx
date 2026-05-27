@@ -6,6 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useResponsive } from '../hooks/use-responsive';
 import { MY_TONTINES } from '../services/tontineChatService';
+import api from '../services/api';
 
 const QUICK_ACTIONS = [
   { label: 'Créer une tontine', icon: 'plus-circle-outline' as const, route: '/create-tontine' as const },
@@ -19,13 +20,29 @@ export default function DashboardScreen() {
   const { isWeb, isDesktop, contentMaxWidth } = useResponsive();
   const bottomPadding = Math.max(insets.bottom, 8);
   const [isVerified, setIsVerified] = useState(true);
+  const [balance, setBalance] = useState('0');
 
   useEffect(() => {
-    const checkKyc = async () => {
-      const status = await SecureStore.getItemAsync('user_status');
-      setIsVerified(status ? status.toUpperCase() === 'VERIFIED' : false);
+    const checkKycAndBalance = async () => {
+      try {
+        const response = await api.get('/auth/me/');
+        if (response.data) {
+          const status = response.data.kyc_status;
+          setIsVerified(status ? status.toUpperCase() === 'VERIFIED' : false);
+          await SecureStore.setItemAsync('user_status', status);
+
+          const rawBalance = response.data.balance;
+          if (rawBalance !== undefined) {
+            const formatted = parseFloat(rawBalance).toLocaleString('fr-FR');
+            setBalance(formatted);
+          }
+        }
+      } catch {
+        const status = await SecureStore.getItemAsync('user_status');
+        setIsVerified(status ? status.toUpperCase() === 'VERIFIED' : false);
+      }
     };
-    checkKyc();
+    checkKycAndBalance();
   }, []);
 
   return (
@@ -97,12 +114,12 @@ export default function DashboardScreen() {
 
               {/* Contenu principal */}
               <View style={[styles.webMain, contentMaxWidth && !isDesktop ? { maxWidth: contentMaxWidth } : undefined]}>
-                <DashboardContent router={router} isWeb={isWeb} isVerified={isVerified} />
+                <DashboardContent router={router} isWeb={isWeb} isVerified={isVerified} balance={balance} />
               </View>
             </View>
           ) : (
             <View style={styles.content}>
-              <DashboardContent router={router} isWeb={false} isVerified={isVerified} />
+              <DashboardContent router={router} isWeb={false} isVerified={isVerified} balance={balance} />
             </View>
           )}
         </ScrollView>
@@ -151,7 +168,7 @@ export default function DashboardScreen() {
   );
 }
 
-function DashboardContent({ router, isWeb, isVerified }: { router: any; isWeb: boolean; isVerified: boolean }) {
+function DashboardContent({ router, isWeb, isVerified, balance }: { router: any; isWeb: boolean; isVerified: boolean; balance: string }) {
   const handleAction = (route: string) => {
     if (!isVerified) {
       Alert.alert(
@@ -180,7 +197,7 @@ function DashboardContent({ router, isWeb, isVerified }: { router: any; isWeb: b
         <View style={styles.balanceTextWrap}>
           <Text style={styles.balanceLabel}>Solde Total Épargné</Text>
           <View style={styles.balanceRow}>
-            <Text style={styles.balanceAmount}>1 250 000</Text>
+            <Text style={styles.balanceAmount}>{balance}</Text>
             <Text style={styles.balanceCurrency}>FCFA</Text>
           </View>
         </View>
