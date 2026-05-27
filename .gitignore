@@ -27,3 +27,9 @@ frontend/android/
 # System / Temporary files
 .DS_Store
 Thumbs.db
+
+# Python / Django
+**/__pycache__/
+*.pyc
+backend/db.sqlite3
+backend/media/
