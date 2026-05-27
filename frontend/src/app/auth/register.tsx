@@ -21,6 +21,7 @@ import { useResponsive } from '../../hooks/use-responsive';
 export default function RegisterScreen() {
   const router = useRouter();
   const { isWeb, contentMaxWidth } = useResponsive();
+  const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -28,8 +29,12 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!phone || !pin || !confirmPin) {
+    if (!fullName.trim() || !phone || !pin || !confirmPin) {
       Alert.alert('Champs requis', 'Veuillez remplir tous les champs.');
+      return;
+    }
+    if (fullName.trim().length < 2) {
+      Alert.alert('Nom invalide', 'Veuillez saisir votre nom complet.');
       return;
     }
     if (!/^\d{4}$/.test(pin)) {
@@ -42,7 +47,7 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     try {
-      const data = await authService.register(phone, pin);
+      const data = await authService.register(fullName.trim(), phone, pin);
       const status = String(data?.status ?? '').toUpperCase();
       if (status === 'VERIFIED') {
         router.replace('/dashboard' as never);
@@ -101,6 +106,22 @@ export default function RegisterScreen() {
 
             {/* Formulaire */}
             <View style={styles.form}>
+              <View style={styles.field}>
+                <Text style={styles.label}>Nom complet</Text>
+                <View style={styles.inputRow}>
+                  <Ionicons name="person-outline" size={20} color="#9CA3AF" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Votre nom complet"
+                    placeholderTextColor="#9CA3AF"
+                    value={fullName}
+                    onChangeText={setFullName}
+                    editable={!loading}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+                </View>
+              </View>
               <View style={styles.field}>
                 <Text style={styles.label}>Numéro de téléphone</Text>
                 <View style={styles.inputRow}>

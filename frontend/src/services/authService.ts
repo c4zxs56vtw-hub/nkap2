@@ -30,9 +30,10 @@ export const authService = {
   /**
    * Crée un nouveau compte utilisateur
    */
-  register: async (phone: string, pin: string) => {
+  register: async (fullName: string, phone: string, pin: string) => {
     try {
       const response = await api.post('/auth/register/', {
+        full_name: fullName,
         phone_number: phone,
         pin: pin,
       });
