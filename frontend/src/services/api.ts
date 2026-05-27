@@ -2,8 +2,26 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// Remplace par l'IP de ton serveur de développement Django (ex: http://192.168.1.X:8000/api)
-const API_BASE_URL = 'https://api.nkap-app.com/api'; 
+import Constants from 'expo-constants';
+
+// Détermine dynamiquement l'URL de base du backend
+const getBaseUrl = () => {
+  if (!__DEV__) {
+    return 'https://api.nkap-app.com/api';
+  }
+
+  // hostUri contient l'adresse IP de l'hôte (ex: 192.168.X.X:8081)
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    return `http://${ip}:8000/api`;
+  }
+
+  // Valeur par défaut si non détecté (par ex. sur le web)
+  return 'http://127.0.0.1:8000/api';
+};
+
+const API_BASE_URL = getBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
