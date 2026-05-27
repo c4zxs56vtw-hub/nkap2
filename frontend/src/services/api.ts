@@ -33,9 +33,17 @@ const api = axios.create({
 // Intercepteur pour injecter automatiquement le Token JWT dans les requêtes
 api.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync('user_token');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Ne pas ajouter le token d'autorisation pour la connexion et l'inscription
+    const isAuthRequest = config.url && (
+      config.url.includes('/auth/login') || 
+      config.url.includes('/auth/register')
+    );
+
+    if (!isAuthRequest) {
+      const token = await SecureStore.getItemAsync('user_token');
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
