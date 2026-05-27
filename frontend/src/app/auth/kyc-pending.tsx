@@ -50,7 +50,7 @@ export default function KycPendingScreen() {
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => router.replace('/')}
+            onPress={() => router.replace('/dashboard' as never)}
           >
             <Text style={styles.secondaryButtonText}>Accéder à l&apos;accueil</Text>
           </TouchableOpacity>

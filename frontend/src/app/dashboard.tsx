@@ -1,8 +1,9 @@
-import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { useResponsive } from '../hooks/use-responsive';
 import { MY_TONTINES } from '../services/tontineChatService';
 
@@ -17,6 +18,15 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const { isWeb, isDesktop, contentMaxWidth } = useResponsive();
   const bottomPadding = Math.max(insets.bottom, 8);
+  const [isVerified, setIsVerified] = useState(true);
+
+  useEffect(() => {
+    const checkKyc = async () => {
+      const status = await SecureStore.getItemAsync('user_status');
+      setIsVerified(status ? status.toUpperCase() === 'VERIFIED' : false);
+    };
+    checkKyc();
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -87,12 +97,12 @@ export default function DashboardScreen() {
 
               {/* Contenu principal */}
               <View style={[styles.webMain, contentMaxWidth && !isDesktop ? { maxWidth: contentMaxWidth } : undefined]}>
-                <DashboardContent router={router} isWeb={isWeb} />
+                <DashboardContent router={router} isWeb={isWeb} isVerified={isVerified} />
               </View>
             </View>
           ) : (
             <View style={styles.content}>
-              <DashboardContent router={router} isWeb={false} />
+              <DashboardContent router={router} isWeb={false} isVerified={isVerified} />
             </View>
           )}
         </ScrollView>
@@ -141,9 +151,30 @@ export default function DashboardScreen() {
   );
 }
 
-function DashboardContent({ router, isWeb }: { router: any; isWeb: boolean }) {
+function DashboardContent({ router, isWeb, isVerified }: { router: any; isWeb: boolean; isVerified: boolean }) {
+  const handleAction = (route: string) => {
+    if (!isVerified) {
+      Alert.alert(
+        "Vérification requise",
+        "Votre compte est en cours de validation par un administrateur. Vous ne pouvez pas créer ni rejoindre de tontine pour le moment."
+      );
+      return;
+    }
+    router.push(route as never);
+  };
+
   return (
     <>
+      {/* Banner validation */}
+      {!isVerified && (
+        <View style={styles.kycWarningBanner}>
+          <Ionicons name="information-circle-outline" size={20} color="#9F1239" />
+          <Text style={styles.kycWarningText}>
+            Votre compte est en attente de vérification par l'administration. La création et la participation aux tontines sont temporairement désactivées.
+          </Text>
+        </View>
+      )}
+
       {/* Balance card */}
       <View style={styles.balanceCard}>
         <View style={styles.balanceTextWrap}>
@@ -166,7 +197,7 @@ function DashboardContent({ router, isWeb }: { router: any; isWeb: boolean }) {
             activeOpacity={0.85}
             onPress={() => {
               if ('route' in action && action.route) {
-                router.push(action.route as never);
+                handleAction(action.route);
               }
             }}
           >
@@ -181,7 +212,18 @@ function DashboardContent({ router, isWeb }: { router: any; isWeb: boolean }) {
       {/* Section tontines */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Mes Tontines Actives</Text>
-        <TouchableOpacity activeOpacity={0.8}>
+        <TouchableOpacity 
+          activeOpacity={0.8}
+          onPress={() => {
+            if (!isVerified) {
+              Alert.alert(
+                "Vérification requise",
+                "Votre compte est en cours de validation par un administrateur."
+              );
+              return;
+            }
+          }}
+        >
           <Text style={styles.sectionLink}>Voir tout</Text>
         </TouchableOpacity>
       </View>
@@ -192,6 +234,13 @@ function DashboardContent({ router, isWeb }: { router: any; isWeb: boolean }) {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => {
+                if (!isVerified) {
+                  Alert.alert(
+                    "Vérification requise",
+                    "Votre compte est en cours de validation par un administrateur."
+                  );
+                  return;
+                }
                 router.push({
                   pathname: '/tontine-chat',
                   params: {
@@ -227,6 +276,13 @@ function DashboardContent({ router, isWeb }: { router: any; isWeb: boolean }) {
                 style={[styles.chatBtn, styles.cardActionHalf]}
                 activeOpacity={0.85}
                 onPress={() => {
+                  if (!isVerified) {
+                    Alert.alert(
+                      "Vérification requise",
+                      "Votre compte est en cours de validation par un administrateur."
+                    );
+                    return;
+                  }
                   router.push({
                     pathname: '/tontine-chat',
                     params: {
@@ -245,6 +301,13 @@ function DashboardContent({ router, isWeb }: { router: any; isWeb: boolean }) {
                 style={[styles.inviteBtn, styles.cardActionHalf]}
                 activeOpacity={0.85}
                 onPress={() => {
+                  if (!isVerified) {
+                    Alert.alert(
+                      "Vérification requise",
+                      "Votre compte est en cours de validation par un administrateur."
+                    );
+                    return;
+                  }
                   router.push({
                     pathname: '/tontine-invite-qr',
                     params: { id: item.id },
@@ -525,4 +588,22 @@ const styles = StyleSheet.create({
   navItemActive: { backgroundColor: '#6cf8bb' },
   navLabel: { marginTop: 2, color: '#3d494c', fontSize: 10 },
   navLabelActive: { color: '#00424f', fontWeight: '700' },
+  kycWarningBanner: {
+    backgroundColor: '#FFE4E6',
+    borderColor: '#FDA4AF',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  kycWarningText: {
+    flex: 1,
+    color: '#9F1239',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
 });
