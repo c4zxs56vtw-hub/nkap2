@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { authService } from '../../services/authService';
 import { useResponsive } from '../../hooks/use-responsive';
 
@@ -171,11 +171,11 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={styles.biometrics}
               onPress={() =>
-                Alert.alert('Biométrie', "Analyse de l'empreinte digitale en cours...")
+                Alert.alert('Biométrie', "Analyse de la reconnaissance faciale (Face ID) en cours...")
               }
             >
-              <Ionicons name="finger-print-outline" size={34} color="#C4C9D4" />
-              <Text style={styles.biometricsText}>Utiliser l'empreinte</Text>
+              <MaterialCommunityIcons name="face-recognition" size={34} color="#C4C9D4" />
+              <Text style={styles.biometricsText}>Utiliser Face ID</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
