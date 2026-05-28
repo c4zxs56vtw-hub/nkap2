@@ -44,6 +44,7 @@ class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source="get_full_name", read_only=True)
     tontines = TontineSerializer(many=True, read_only=True)
     qrImageUrl = serializers.SerializerMethodField()
+    avatarUrl = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -72,6 +73,8 @@ class UserSerializer(serializers.ModelSerializer):
             "tontines",
             "qr_code",
             "qrImageUrl",
+            "avatar",
+            "avatarUrl",
         ]
         read_only_fields = [
             "id",
@@ -89,6 +92,7 @@ class UserSerializer(serializers.ModelSerializer):
             "date_joined",
             "qr_code",
             "qrImageUrl",
+            "avatarUrl",
         ]
 
     def get_qrImageUrl(self, obj) -> str:
@@ -96,6 +100,15 @@ class UserSerializer(serializers.ModelSerializer):
         payload = f"nkap://pay/{obj.phone_number}?uid={obj.qr_code}"
         encoded = payload.replace(":", "%3A").replace("/", "%2F").replace("?", "%3F").replace("=", "%3D").replace("+", "%2B")
         return f"https://api.qrserver.com/v1/create-qr-code/?size=260x260&data={encoded}&color=004249&bgcolor=FFFFFF&qzone=2"
+
+    def get_avatarUrl(self, obj) -> str | None:
+        """Retourne l'URL absolue de la photo de profil de l'utilisateur."""
+        if obj.avatar:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
 
 
 class RegisterSerializer(serializers.ModelSerializer):

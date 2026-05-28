@@ -14,8 +14,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../services/authService';
 import { useResponsive } from '../hooks/use-responsive';
+import api from '../services/api';
 
 export const ADMIN_MODE_KEY = 'nkap_admin_mode';
 
@@ -29,6 +31,10 @@ export default function ProfileScreen() {
   const [linkedBankName, setLinkedBankName] = useState('');
   const [userStatus, setUserStatus] = useState('');
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   const loadProfile = useCallback(async () => {
     try {
@@ -46,6 +52,22 @@ export default function ProfileScreen() {
       setIsAdminMode(adminMode === 'true');
     } catch {
       // silently fail
+    }
+
+    // Charger les données depuis l'API
+    try {
+      const response = await api.get('/auth/me/');
+      if (response.data) {
+        if (response.data.avatarUrl) setAvatarUrl(response.data.avatarUrl);
+        if (response.data.full_name) setFullName(response.data.full_name);
+        if (response.data.phone_number) setPhoneNumber(response.data.phone_number);
+        if (response.data.kyc_status) {
+          setUserStatus(response.data.kyc_status);
+          await SecureStore.setItemAsync('user_status', response.data.kyc_status);
+        }
+      }
+    } catch {
+      // utiliser les données du SecureStore en fallback
     } finally {
       setLoading(false);
     }
@@ -66,7 +88,7 @@ export default function ProfileScreen() {
     try {
       await SecureStore.setItemAsync(ADMIN_MODE_KEY, enabled ? 'true' : 'false');
     } catch {
-      Alert.alert('Erreur', 'Impossible d’enregistrer le mode administrateur.');
+      Alert.alert('Erreur', 'Impossible d'enregistrer le mode administrateur.');
       setIsAdminMode(!enabled);
     }
   };
@@ -84,6 +106,83 @@ export default function ProfileScreen() {
     } catch {
       Alert.alert('Erreur', 'Impossible de déconnecter votre session.');
     }
+  };
+
+  const handlePickAvatar = async () => {
+    // Demander la permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission requise',
+        'Nkap a besoin d'accéder à votre galerie pour changer votre photo de profil.'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    await uploadAvatar(asset.uri, asset.mimeType ?? 'image/jpeg');
+  };
+
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission requise', 'Nkap a besoin d'accéder à votre caméra.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    await uploadAvatar(asset.uri, asset.mimeType ?? 'image/jpeg');
+  };
+
+  const uploadAvatar = async (uri: string, mimeType: string) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      const filename = uri.split('/').pop() ?? 'avatar.jpg';
+      formData.append('avatar', {
+        uri,
+        name: filename,
+        type: mimeType,
+      } as any);
+
+      const response = await api.post('/auth/avatar/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (response.data?.avatarUrl) {
+        setAvatarUrl(response.data.avatarUrl + `?t=${Date.now()}`);
+      }
+      Alert.alert('✓ Photo mise à jour', 'Votre photo de profil a été modifiée.');
+    } catch {
+      Alert.alert('Erreur', 'Impossible de mettre à jour votre photo. Réessayez.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const showAvatarOptions = () => {
+    Alert.alert('Photo de profil', 'Choisissez une option', [
+      { text: 'Prendre une photo', onPress: handleTakePhoto },
+      { text: 'Choisir dans la galerie', onPress: handlePickAvatar },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
   };
 
   const bottomInset = Math.max(insets.bottom, 8);
@@ -169,6 +268,11 @@ export default function ProfileScreen() {
                   handleLogout={handleLogout}
                   isAdminMode={isAdminMode}
                   onAdminModeToggle={handleAdminModeToggle}
+                  avatarUrl={avatarUrl}
+                  uploading={uploading}
+                  onChangeAvatar={showAvatarOptions}
+                  fullName={fullName}
+                  phoneNumber={phoneNumber}
                 />
               </View>
             </View>
@@ -183,6 +287,11 @@ export default function ProfileScreen() {
                 handleLogout={handleLogout}
                 isAdminMode={isAdminMode}
                 onAdminModeToggle={handleAdminModeToggle}
+                avatarUrl={avatarUrl}
+                uploading={uploading}
+                onChangeAvatar={showAvatarOptions}
+                fullName={fullName}
+                phoneNumber={phoneNumber}
               />
             </View>
           )}
@@ -241,6 +350,11 @@ function ProfileContent({
   handleLogout,
   isAdminMode,
   onAdminModeToggle,
+  avatarUrl,
+  uploading,
+  onChangeAvatar,
+  fullName,
+  phoneNumber,
 }: {
   loading: boolean;
   userStatus: string;
@@ -250,24 +364,56 @@ function ProfileContent({
   handleLogout: () => void;
   isAdminMode: boolean;
   onAdminModeToggle: (enabled: boolean) => void;
+  avatarUrl: string | null;
+  uploading: boolean;
+  onChangeAvatar: () => void;
+  fullName: string;
+  phoneNumber: string;
 }) {
   return (
     <>
-      {/* Hero card — même style que la balance card du dashboard */}
+      {/* Hero card */}
       <View style={styles.heroCard}>
         <View style={styles.heroTopRow}>
-          <View style={styles.avatarWrap}>
-            <Image
-              source={require('../../assets/images/logo-glow.png')}
-              style={styles.avatar}
-              resizeMode="cover"
-            />
-          </View>
+          {/* Avatar avec bouton d'édition */}
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={onChangeAvatar}
+            activeOpacity={0.85}
+            disabled={uploading}
+          >
+            <View style={styles.avatarWrap}>
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Image
+                  source={require('../../assets/images/logo-glow.png')}
+                  style={styles.avatar}
+                  resizeMode="cover"
+                />
+              )}
+            </View>
+            {/* Badge caméra */}
+            <View style={styles.cameraBtn}>
+              {uploading ? (
+                <ActivityIndicator size={10} color="#FFFFFF" />
+              ) : (
+                <MaterialCommunityIcons name="camera" size={12} color="#FFFFFF" />
+              )}
+            </View>
+          </TouchableOpacity>
+
           <View style={styles.heroTextBlock}>
             <Text style={styles.heroKicker}>Profil utilisateur</Text>
-            <Text style={styles.heroTitle}>Votre compte Nkap</Text>
-            <Text style={styles.heroSubtitle}>
-              Consultez vos informations, votre statut et vos moyens de paiement liés.
+            <Text style={styles.heroTitle} numberOfLines={1}>
+              {fullName || 'Votre compte Nkap'}
+            </Text>
+            <Text style={styles.heroSubtitle} numberOfLines={1}>
+              {phoneNumber || 'Consultez et modifiez vos informations.'}
             </Text>
           </View>
         </View>
@@ -281,7 +427,6 @@ function ProfileContent({
             </Text>
           </View>
         </View>
-        {/* Glows décoratifs comme le dashboard */}
         <View style={styles.heroGlowTop} />
         <View style={styles.heroGlowBottom} />
       </View>
@@ -565,19 +710,33 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   heroTopRow: { flexDirection: 'row', alignItems: 'center' },
+  avatarContainer: { position: 'relative' },
   avatarWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255,255,255,0.5)',
     overflow: 'hidden',
     backgroundColor: '#ffffff',
   },
   avatar: { width: '100%', height: '100%' },
+  cameraBtn: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#00424f',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   heroTextBlock: { flex: 1, marginLeft: 14 },
   heroKicker: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
-  heroTitle: { marginTop: 2, color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  heroTitle: { marginTop: 2, color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   heroSubtitle: { marginTop: 4, color: 'rgba(255,255,255,0.88)', fontSize: 12, lineHeight: 17 },
   heroBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   statusPill: {

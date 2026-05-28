@@ -71,6 +71,7 @@ class User(AbstractUser):
     fraud_flag_count = models.PositiveIntegerField(default=0)
     last_flagged_at = models.DateTimeField(null=True, blank=True)
     qr_code = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
 
     objects = UserManager()
 
