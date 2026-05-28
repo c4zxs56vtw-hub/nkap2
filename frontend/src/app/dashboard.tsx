@@ -21,6 +21,7 @@ export default function DashboardScreen() {
   const bottomPadding = Math.max(insets.bottom, 8);
   const [isVerified, setIsVerified] = useState(true);
   const [balance, setBalance] = useState('0');
+  const [tontines, setTontines] = useState<any[]>([]);
 
   useEffect(() => {
     const checkKycAndBalance = async () => {
@@ -35,6 +36,11 @@ export default function DashboardScreen() {
           if (rawBalance !== undefined) {
             const formatted = parseFloat(rawBalance).toLocaleString('fr-FR');
             setBalance(formatted);
+          }
+
+          const rawTontines = response.data.tontines;
+          if (Array.isArray(rawTontines)) {
+            setTontines(rawTontines);
           }
         }
       } catch {
@@ -114,12 +120,12 @@ export default function DashboardScreen() {
 
               {/* Contenu principal */}
               <View style={[styles.webMain, contentMaxWidth && !isDesktop ? { maxWidth: contentMaxWidth } : undefined]}>
-                <DashboardContent router={router} isWeb={isWeb} isVerified={isVerified} balance={balance} />
+                <DashboardContent router={router} isWeb={isWeb} isVerified={isVerified} balance={balance} tontines={tontines} />
               </View>
             </View>
           ) : (
             <View style={styles.content}>
-              <DashboardContent router={router} isWeb={false} isVerified={isVerified} balance={balance} />
+              <DashboardContent router={router} isWeb={false} isVerified={isVerified} balance={balance} tontines={tontines} />
             </View>
           )}
         </ScrollView>
@@ -168,7 +174,7 @@ export default function DashboardScreen() {
   );
 }
 
-function DashboardContent({ router, isWeb, isVerified, balance }: { router: any; isWeb: boolean; isVerified: boolean; balance: string }) {
+function DashboardContent({ router, isWeb, isVerified, balance, tontines }: { router: any; isWeb: boolean; isVerified: boolean; balance: string; tontines: any[] }) {
   const handleAction = (route: string) => {
     if (!isVerified) {
       Alert.alert(
@@ -246,8 +252,17 @@ function DashboardContent({ router, isWeb, isVerified, balance }: { router: any;
       </View>
 
       <View style={[styles.cardsList, isWeb && styles.cardsListWeb]}>
-        {MY_TONTINES.map((item) => (
-          <View key={item.id} style={[styles.tontineCard, isWeb && styles.tontineCardWeb]}>
+        {tontines.length === 0 ? (
+          <View style={[styles.emptyState, isWeb && { flex: 1 }]}>
+            <MaterialCommunityIcons name="wallet-membership" size={44} color="#bcc9cd" />
+            <Text style={styles.emptyStateTitle}>Aucune tontine active</Text>
+            <Text style={styles.emptyStateSubtitle}>
+              Vous n'êtes membre d'aucune tontine pour le moment.
+            </Text>
+          </View>
+        ) : (
+          tontines.map((item) => (
+            <View key={item.id} style={[styles.tontineCard, isWeb && styles.tontineCardWeb]}>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => {
@@ -336,8 +351,9 @@ function DashboardContent({ router, isWeb, isVerified, balance }: { router: any;
               </TouchableOpacity>
             </View>
           </View>
-        ))}
-      </View>
+        ))
+      )}
+    </View>
     </>
   );
 }
@@ -622,5 +638,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 18,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dee3e6',
+    borderStyle: 'dashed',
+    width: '100%',
+  },
+  emptyStateTitle: {
+    color: '#171d1e',
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 10,
+  },
+  emptyStateSubtitle: {
+    color: '#6d797d',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
+    maxWidth: 240,
   },
 });

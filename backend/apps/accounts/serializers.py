@@ -7,12 +7,42 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from apps.accounts.models import User
+from apps.accounts.models import User, Tontine
 from apps.common.utils import normalize_phone_number
+
+
+class TontineSerializer(serializers.ModelSerializer):
+    poolAmount = serializers.SerializerMethodField()
+    activeMembers = serializers.IntegerField(source="active_members")
+    iconBg = serializers.CharField(source="icon_bg")
+    iconColor = serializers.CharField(source="icon_color")
+    treasurerName = serializers.CharField(source="treasurer_name")
+    memberName = serializers.CharField(source="member_name")
+
+    class Meta:
+        model = Tontine
+        fields = [
+            "id",
+            "title",
+            "subtitle",
+            "poolAmount",
+            "activeMembers",
+            "progress",
+            "icon",
+            "iconBg",
+            "iconColor",
+            "treasurerName",
+            "memberName",
+        ]
+
+    def get_poolAmount(self, obj) -> str:
+        val = int(obj.pool_amount)
+        return f"{val:,} FCFA".replace(",", " ")
 
 
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source="get_full_name", read_only=True)
+    tontines = TontineSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -31,12 +61,14 @@ class UserSerializer(serializers.ModelSerializer):
             "kyc_rejection_reason",
             "identity_document",
             "mobile_money_number",
+            "balance",
             "is_blacklisted",
             "is_active",
             "blacklisted_reason",
             "fraud_flag_count",
             "last_flagged_at",
             "date_joined",
+            "tontines",
         ]
         read_only_fields = [
             "id",
