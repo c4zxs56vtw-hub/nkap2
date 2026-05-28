@@ -120,3 +120,11 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
     )
+
+
+from apps.accounts.models import Tontine
+
+@admin.register(Tontine)
+class TontineAdmin(admin.ModelAdmin):
+    list_display = ("title", "subtitle", "pool_amount", "active_members", "progress")
+    search_fields = ("title", "subtitle")

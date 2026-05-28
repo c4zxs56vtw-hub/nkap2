@@ -63,6 +63,7 @@ class User(AbstractUser):
     kyc_rejection_reason = models.TextField(blank=True)
     identity_document = models.FileField(upload_to="kyc_documents/", null=True, blank=True)
     mobile_money_number = models.CharField(max_length=20, blank=True)
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     is_blacklisted = models.BooleanField(default=False)
     blacklisted_reason = models.TextField(blank=True)
     fraud_flag_count = models.PositiveIntegerField(default=0)
@@ -82,3 +83,21 @@ class User(AbstractUser):
     def __str__(self) -> str:
         full_name = self.get_full_name().strip()
         return full_name or self.phone_number
+
+
+class Tontine(models.Model):
+    title = models.CharField(max_length=255)
+    subtitle = models.CharField(max_length=255, blank=True)
+    pool_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    active_members = models.PositiveIntegerField(default=1)
+    progress = models.PositiveIntegerField(default=0)
+    icon = models.CharField(max_length=54, default="airplane")
+    icon_bg = models.CharField(max_length=20, default="#06b6d41a")
+    icon_color = models.CharField(max_length=20, default="#00687a")
+    treasurer_name = models.CharField(max_length=255, blank=True)
+    member_name = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    members = models.ManyToManyField(User, related_name="tontines")
+
+    def __str__(self) -> str:
+        return self.title
