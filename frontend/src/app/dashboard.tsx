@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,6 +22,10 @@ export default function DashboardScreen() {
   const [isVerified, setIsVerified] = useState(true);
   const [balance, setBalance] = useState('0');
   const [tontines, setTontines] = useState<any[]>([]);
+  const [userName, setUserName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   useEffect(() => {
     const checkKycAndBalance = async () => {
@@ -42,6 +46,10 @@ export default function DashboardScreen() {
           if (Array.isArray(rawTontines)) {
             setTontines(rawTontines);
           }
+
+          if (response.data.full_name) setUserName(response.data.full_name);
+          if (response.data.phone_number) setPhoneNumber(response.data.phone_number);
+          if (response.data.qrImageUrl) setQrImageUrl(response.data.qrImageUrl);
         }
       } catch {
         const status = await SecureStore.getItemAsync('user_status');
@@ -50,6 +58,15 @@ export default function DashboardScreen() {
     };
     checkKycAndBalance();
   }, []);
+
+  const shareQrLink = async () => {
+    try {
+      await Share.share({
+        message: `Envoyez-moi de l'argent sur Nkap ! Mon numéro : ${phoneNumber}`,
+        title: 'Mon QR Nkap',
+      });
+    } catch {}
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -120,12 +137,26 @@ export default function DashboardScreen() {
 
               {/* Contenu principal */}
               <View style={[styles.webMain, contentMaxWidth && !isDesktop ? { maxWidth: contentMaxWidth } : undefined]}>
-                <DashboardContent router={router} isWeb={isWeb} isVerified={isVerified} balance={balance} tontines={tontines} />
+        <DashboardContent
+              router={router}
+              isWeb={isWeb}
+              isVerified={isVerified}
+              balance={balance}
+              tontines={tontines}
+              onShowQr={() => setShowQrModal(true)}
+            />
               </View>
             </View>
           ) : (
             <View style={styles.content}>
-              <DashboardContent router={router} isWeb={false} isVerified={isVerified} balance={balance} tontines={tontines} />
+              <DashboardContent
+              router={router}
+              isWeb={false}
+              isVerified={isVerified}
+              balance={balance}
+              tontines={tontines}
+              onShowQr={() => setShowQrModal(true)}
+            />
             </View>
           )}
         </ScrollView>
@@ -170,11 +201,57 @@ export default function DashboardScreen() {
           </View>
         )}
       </View>
+
+      {/* Modal QR Code */}
+      <Modal
+        visible={showQrModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQrModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowQrModal(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Mon QR Nkap</Text>
+              <TouchableOpacity onPress={() => setShowQrModal(false)} style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Faites scanner ce code pour recevoir un paiement
+            </Text>
+
+            {qrImageUrl ? (
+              <View style={styles.qrWrapper}>
+                <Image
+                  source={{ uri: qrImageUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : (
+              <View style={[styles.qrWrapper, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: '#6d797d' }}>Chargement…</Text>
+              </View>
+            )}
+
+            <View style={styles.modalPhoneRow}>
+              <Text style={styles.modalPhoneLabel}>Numéro Nkap</Text>
+              <Text style={styles.modalPhone}>{phoneNumber || '—'}</Text>
+            </View>
+
+            <TouchableOpacity style={styles.modalShareBtn} onPress={shareQrLink} activeOpacity={0.85}>
+              <Text style={styles.modalShareText}>Partager mon lien</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function DashboardContent({ router, isWeb, isVerified, balance, tontines }: { router: any; isWeb: boolean; isVerified: boolean; balance: string; tontines: any[] }) {
+function DashboardContent({ router, isWeb, isVerified, balance, tontines, onShowQr }: { router: any; isWeb: boolean; isVerified: boolean; balance: string; tontines: any[]; onShowQr: () => void }) {
   const handleAction = (route: string) => {
     if (!isVerified) {
       Alert.alert(
@@ -207,6 +284,9 @@ function DashboardContent({ router, isWeb, isVerified, balance, tontines }: { ro
             <Text style={styles.balanceCurrency}>FCFA</Text>
           </View>
         </View>
+        <TouchableOpacity style={styles.qrBtn} onPress={onShowQr} activeOpacity={0.85}>
+          <MaterialCommunityIcons name="qrcode" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
         <View style={styles.balanceGlowTop} />
         <View style={styles.balanceGlowBottom} />
       </View>
@@ -665,4 +745,91 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     maxWidth: 240,
   },
+  /* QR button in balance card */
+  qrBtn: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  /* Modal QR */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  modalHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  modalTitle: { color: '#00424f', fontSize: 18, fontWeight: '800' },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#eff4f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseText: { color: '#6d797d', fontSize: 16, fontWeight: '700' },
+  modalSubtitle: {
+    color: '#6d797d',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  qrWrapper: {
+    width: 240,
+    height: 240,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dee3e6',
+    overflow: 'hidden',
+    marginBottom: 20,
+    backgroundColor: '#f5fafc',
+  },
+  qrImage: { width: '100%', height: '100%' },
+  modalPhoneRow: {
+    width: '100%',
+    backgroundColor: '#f5fafc',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalPhoneLabel: { color: '#6d797d', fontSize: 11, fontWeight: '600', marginBottom: 2 },
+  modalPhone: { color: '#00424f', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+  modalShareBtn: {
+    width: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalShareText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 });

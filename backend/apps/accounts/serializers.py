@@ -43,6 +43,7 @@ class TontineSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source="get_full_name", read_only=True)
     tontines = TontineSerializer(many=True, read_only=True)
+    qrImageUrl = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -69,6 +70,8 @@ class UserSerializer(serializers.ModelSerializer):
             "last_flagged_at",
             "date_joined",
             "tontines",
+            "qr_code",
+            "qrImageUrl",
         ]
         read_only_fields = [
             "id",
@@ -84,7 +87,15 @@ class UserSerializer(serializers.ModelSerializer):
             "fraud_flag_count",
             "last_flagged_at",
             "date_joined",
+            "qr_code",
+            "qrImageUrl",
         ]
+
+    def get_qrImageUrl(self, obj) -> str:
+        """Genère l'URL du QR code encodant le lien de paiement/profil Nkap de l'utilisateur."""
+        payload = f"nkap://pay/{obj.phone_number}?uid={obj.qr_code}"
+        encoded = payload.replace(":", "%3A").replace("/", "%2F").replace("?", "%3F").replace("=", "%3D").replace("+", "%2B")
+        return f"https://api.qrserver.com/v1/create-qr-code/?size=260x260&data={encoded}&color=004249&bgcolor=FFFFFF&qzone=2"
 
 
 class RegisterSerializer(serializers.ModelSerializer):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
@@ -68,6 +70,7 @@ class User(AbstractUser):
     blacklisted_reason = models.TextField(blank=True)
     fraud_flag_count = models.PositiveIntegerField(default=0)
     last_flagged_at = models.DateTimeField(null=True, blank=True)
+    qr_code = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
 
     objects = UserManager()
 
