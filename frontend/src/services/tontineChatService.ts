@@ -30,7 +30,7 @@ export interface MyTontine {
 
 export const MY_TONTINES: MyTontine[] = [
   {
-    id: 'voyage-2024',
+    id: '101',
     title: 'Voyage 2024',
     subtitle: 'Collectif Famille',
     poolAmount: '1 250 000 FCFA',
@@ -43,7 +43,7 @@ export const MY_TONTINES: MyTontine[] = [
     memberName: "Marc N'diaye",
   },
   {
-    id: 'epargne-famille',
+    id: '102',
     title: 'Épargne Famille',
     subtitle: 'Mensuel',
     poolAmount: '2 000 000 FCFA',
@@ -56,7 +56,7 @@ export const MY_TONTINES: MyTontine[] = [
     memberName: 'Jean-Paul Fotsing',
   },
   {
-    id: 'scolarite-septembre',
+    id: '103',
     title: 'Scolarité Septembre',
     subtitle: 'Privé',
     poolAmount: '300 000 FCFA',
@@ -72,19 +72,20 @@ export const MY_TONTINES: MyTontine[] = [
 
 const STORAGE_PREFIX = 'tontine_chat_';
 
-function storageKey(tontineId: string) {
+function storageKey(tontineId: string | number) {
   return `${STORAGE_PREFIX}${tontineId}`;
 }
 
-export function getTontineById(id: string): MyTontine | undefined {
-  return MY_TONTINES.find((t) => t.id === id);
+export function getTontineById(id: string | number): MyTontine | undefined {
+  return MY_TONTINES.find((t) => String(t.id) === String(id));
 }
 
-export function getInitialMessages(tontineId: string): TontineChatMessage[] {
+export function getInitialMessages(tontineId: string | number): TontineChatMessage[] {
   const t = getTontineById(tontineId);
-  if (!t) return getInitialMessages('voyage-2024');
+  const idStr = String(tontineId);
+  if (!t) return getInitialMessages('101');
 
-  if (tontineId === 'voyage-2024') {
+  if (idStr === '101' || idStr === 'voyage-2024') {
     return [
       {
         id: '1',
@@ -135,7 +136,7 @@ export function getInitialMessages(tontineId: string): TontineChatMessage[] {
     ];
   }
 
-  if (tontineId === 'epargne-famille') {
+  if (idStr === '102' || idStr === 'epargne-famille') {
     return [
       {
         id: '1',

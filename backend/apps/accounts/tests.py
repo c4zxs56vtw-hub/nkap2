@@ -29,6 +29,11 @@ class AuthEndpointsTestCase(APITestCase):
         self.assertEqual(response.data["user"]["phone_number"], "237690000000")
         self.assertEqual(response.data["user"]["first_name"], "Test")
         self.assertEqual(response.data["user"]["last_name"], "User")
+        
+        # Verify default tontines association
+        self.assertIn("tontines", response.data["user"])
+        self.assertEqual(len(response.data["user"]["tontines"]), 3)
+        self.assertEqual(response.data["user"]["tontines"][0]["title"], "Voyage 2024")
 
         # 2. Test Registration Validation (duplicate phone number)
         response_dup = self.client.post(self.register_url, self.user_data, format="json")

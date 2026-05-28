@@ -128,7 +128,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data["first_name"] = first_name
         validated_data["last_name"] = last_name
         
-        return User.objects.create_user(password=pin, **validated_data)
+        user = User.objects.create_user(password=pin, **validated_data)
+        
+        # Associer automatiquement le nouvel utilisateur aux tontines de démo
+        try:
+            default_tontines = Tontine.objects.filter(id__in=[101, 102, 103])
+            for t in default_tontines:
+                t.members.add(user)
+        except Exception:
+            pass
+            
+        return user
 
 
 class LoginSerializer(TokenObtainPairSerializer):

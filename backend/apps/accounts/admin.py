@@ -49,6 +49,7 @@ class UserAdmin(BaseUserAdmin):
         "country",
         "role",
         "kyc_status",
+        "balance",
         "trust_score",
         "is_active",
         "is_blacklisted",
@@ -68,6 +69,21 @@ class UserAdmin(BaseUserAdmin):
         "email",
     )
     ordering = ("-date_joined",)
+    
+    actions = ["approve_kyc", "reject_kyc"]
+
+    @admin.action(description="Approuver le KYC des utilisateurs sélectionnés")
+    def approve_kyc(self, request, queryset):
+        from apps.common.constants import KYCStatus
+        updated = queryset.update(kyc_status=KYCStatus.VERIFIED)
+        self.message_user(request, f"Le KYC de {updated} utilisateur(s) a été approuvé.")
+
+    @admin.action(description="Rejeter le KYC des utilisateurs sélectionnés")
+    def reject_kyc(self, request, queryset):
+        from apps.common.constants import KYCStatus
+        updated = queryset.update(kyc_status=KYCStatus.REJECTED)
+        self.message_user(request, f"Le KYC de {updated} utilisateur(s) a été rejeté.")
+
     fieldsets = (
         (None, {"fields": ("username", "phone_number", "password")}),
         (
@@ -82,6 +98,9 @@ class UserAdmin(BaseUserAdmin):
                     "trust_score",
                     "kyc_status",
                     "kyc_rejection_reason",
+                    "identity_document",
+                    "mobile_money_number",
+                    "balance",
                 )
             },
         ),

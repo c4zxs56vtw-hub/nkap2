@@ -17,6 +17,7 @@ import {
 } from '../services/tontineChatService';
 import { useResponsive } from '../hooks/use-responsive';
 import { safeGoBack } from '../utils/safeNavigation';
+import api from '../services/api';
 
 type ChatRow = MyTontine & { preview: string; time: string };
 
@@ -29,14 +30,33 @@ export default function TontineMessagesScreen() {
 
   const loadRows = useCallback(async () => {
     setLoading(true);
-    const summaries = await Promise.all(
-      MY_TONTINES.map(async (t) => {
-        const { preview, time } = await getTontineChatSummary(t.id);
-        return { ...t, preview, time };
-      })
-    );
-    setRows(summaries);
-    setLoading(false);
+    try {
+      const response = await api.get('/auth/me/');
+      const rawTontines = response.data.tontines;
+      if (Array.isArray(rawTontines)) {
+        const summaries = await Promise.all(
+          rawTontines.map(async (t: any) => {
+            const { preview, time } = await getTontineChatSummary(t.id);
+            return { ...t, preview, time };
+          })
+        );
+        setRows(summaries);
+      } else {
+        setRows([]);
+      }
+    } catch (error) {
+      console.error('Failed to load dynamic tontine messages:', error);
+      // Fallback to local MY_TONTINES if API fails
+      const summaries = await Promise.all(
+        MY_TONTINES.map(async (t) => {
+          const { preview, time } = await getTontineChatSummary(t.id);
+          return { ...t, preview, time };
+        })
+      );
+      setRows(summaries);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useFocusEffect(
