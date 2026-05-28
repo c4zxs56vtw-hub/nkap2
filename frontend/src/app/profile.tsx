@@ -30,7 +30,8 @@ export default function ProfileScreen() {
   const [linkedMomoPhone, setLinkedMomoPhone] = useState('');
   const [linkedBankName, setLinkedBankName] = useState('');
   const [userStatus, setUserStatus] = useState('');
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [role, setRole] = useState('MEMBER');
+  const isAdminMode = role !== 'MEMBER';
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -38,18 +39,18 @@ export default function ProfileScreen() {
 
   const loadProfile = useCallback(async () => {
     try {
-      const [method, momoPhone, bankName, status, adminMode] = await Promise.all([
+      const [method, momoPhone, bankName, status, storedRole] = await Promise.all([
         SecureStore.getItemAsync('linked_account_method'),
         SecureStore.getItemAsync('linked_momo_phone'),
         SecureStore.getItemAsync('linked_bank_name'),
         SecureStore.getItemAsync('user_status'),
-        SecureStore.getItemAsync(ADMIN_MODE_KEY),
+        SecureStore.getItemAsync('user_role'),
       ]);
       setLinkedMethod(method ?? '');
       setLinkedMomoPhone(momoPhone ?? '');
       setLinkedBankName(bankName ?? '');
       setUserStatus(status ?? '');
-      setIsAdminMode(adminMode === 'true');
+      setRole(storedRole ?? 'MEMBER');
     } catch {
       // silently fail
     }
@@ -61,6 +62,10 @@ export default function ProfileScreen() {
         if (response.data.avatarUrl) setAvatarUrl(response.data.avatarUrl);
         if (response.data.full_name) setFullName(response.data.full_name);
         if (response.data.phone_number) setPhoneNumber(response.data.phone_number);
+        if (response.data.role) {
+          setRole(response.data.role);
+          await SecureStore.setItemAsync('user_role', response.data.role);
+        }
         if (response.data.kyc_status) {
           setUserStatus(response.data.kyc_status);
           await SecureStore.setItemAsync('user_status', response.data.kyc_status);
@@ -560,30 +565,19 @@ function ProfileContent({
           <MaterialCommunityIcons name="chevron-right" size={22} color="#6d797d" />
         </TouchableOpacity>
         <View style={styles.actionDivider} />
-        <View style={styles.actionRow}>
-          <View style={[styles.actionIcon, { backgroundColor: '#db27771a' }]}>
-            <MaterialCommunityIcons name="shield-account-outline" size={20} color="#db2777" />
-          </View>
-          <View style={styles.actionTextBlock}>
-            <Text style={styles.actionTitle}>Mode Administrateur</Text>
-            <Text style={styles.actionSubtitle}>
-              {isAdminMode ? 'Portail admin activé' : 'Désactivé — usage démo uniquement'}
-            </Text>
-          </View>
-          <Switch
-            value={isAdminMode}
-            onValueChange={onAdminModeToggle}
-            trackColor={{ false: '#cbd5e1', true: '#fbcfe8' }}
-            thumbColor={isAdminMode ? '#db2777' : '#f8fafc'}
-          />
-        </View>
         {isAdminMode && (
           <>
-            <View style={styles.actionDivider} />
             <TouchableOpacity
               style={styles.actionRow}
               activeOpacity={0.8}
-              onPress={() => router.push('/admin-dashboard' as never)}
+              onPress={async () => {
+                try {
+                  await SecureStore.setItemAsync(ADMIN_MODE_KEY, 'true');
+                  router.push('/admin-dashboard' as never);
+                } catch {
+                  Alert.alert('Erreur', 'Impossible d’activer le mode administrateur.');
+                }
+              }}
             >
               <View style={[styles.actionIcon, { backgroundColor: '#fce7f3' }]}>
                 <MaterialCommunityIcons name="shield-crown-outline" size={20} color="#db2777" />

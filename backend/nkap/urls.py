@@ -4,12 +4,15 @@ from django.contrib import admin
 from django.urls import include, path
 
 from nkap.views import health_check
+from apps.accounts.views import AdminUserListAPIView
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health_check, name="health-check"),
     path("api/auth/", include("apps.accounts.urls")),
+    path("api/admin/users", AdminUserListAPIView.as_view(), name="admin-users"),
+    path("api/admin/users/", AdminUserListAPIView.as_view(), name="admin-users-slash"),
 ]
 
 

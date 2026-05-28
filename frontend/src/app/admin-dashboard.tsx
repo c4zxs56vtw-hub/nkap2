@@ -97,6 +97,7 @@ export default function AdminDashboardScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     const init = async () => {
       try {
         const [status, adminMode] = await Promise.all([
@@ -106,25 +107,32 @@ export default function AdminDashboardScreen() {
         if (adminMode !== 'true') {
           Alert.alert(
             'Mode administrateur requis',
-            'Activez le « Mode Administrateur » dans Profil → Assistance & Rôles pour accéder au portail.',
+            'Activez le « Portail Administration » dans Profil pour accéder.',
             [{ text: 'Retour', onPress: () => safeGoBack(router, '/profile') }]
           );
           return;
         }
-        if (status) {
-          setUsers((prev) =>
-            prev.map((u) =>
-              u.id === 'user-current'
-                ? { ...u, kycStatus: status as 'VÉRIFIÉ' | 'EN ATTENTE' | 'NON DÉPOSÉ' }
-                : u
-            )
+
+        setLoading(true);
+        const res = await api.get('/admin/users');
+        if (mounted && Array.isArray(res.data)) {
+          setUsers(res.data);
+        }
+      } catch (e: any) {
+        console.warn('Erreur lors du chargement des utilisateurs:', e);
+        if (e.response?.status === 403 || e.response?.status === 401) {
+          Alert.alert(
+            'Accès refusé',
+            'Vous n’êtes pas autorisé à accéder au portail d’administration.',
+            [{ text: 'Retour', onPress: () => safeGoBack(router, '/profile') }]
           );
         }
-      } catch {
-        safeGoBack(router, '/profile');
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
     init();
+    return () => { mounted = false; };
   }, [router]);
 
   const handleSelectUser = (user: UserItem) => {

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rest_framework import status
 from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, BasePermission
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -293,3 +293,51 @@ class TransactionListAPIView(APIView):
                 "out": total_out,
             }
         }, status=status.HTTP_200_OK)
+
+
+class IsNkapAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role != "MEMBER"
+
+
+class AdminUserListAPIView(APIView):
+    permission_classes = [IsNkapAdmin]
+
+    def get(self, request):
+        users = User.objects.all().exclude(id=request.user.id)
+        
+        data = []
+        for user in users:
+            kyc_status = 'NON DÉPOSÉ'
+            if user.kyc_status == 'VERIFIED':
+                kyc_status = 'VÉRIFIÉ'
+            elif user.kyc_status in ['PENDING', 'SUBMITTED', 'UNDER_REVIEW']:
+                kyc_status = 'EN ATTENTE'
+                
+            tontines_count = user.tontines.count()
+            
+            colors = ['#db2777', '#0284c7', '#059669', '#d97706', '#7c3aed', '#2563eb']
+            avatar_color = colors[user.id % len(colors)]
+            
+            last_msg = "Aucun message d'assistance"
+            last_msg_time = ""
+            
+            msg = Message.objects.filter(sender=user).order_by('-created_at').first()
+            if msg:
+                last_msg = msg.content
+                local_dt = timezone.localtime(msg.created_at)
+                last_msg_time = local_dt.strftime("%H:%M")
+                
+            data.append({
+                "id": str(user.id),
+                "name": user.get_full_name() or user.phone_number,
+                "avatarColor": avatar_color,
+                "kycStatus": kyc_status,
+                "lastMessage": last_msg,
+                "lastMessageTime": last_msg_time,
+                "unreadCount": 0,
+                "phone": user.phone_number,
+                "tontinesCount": tontines_count
+            })
+            
+        return Response(data, status=status.HTTP_200_OK)
