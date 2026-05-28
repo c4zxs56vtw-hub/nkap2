@@ -88,7 +88,7 @@ export default function ProfileScreen() {
     try {
       await SecureStore.setItemAsync(ADMIN_MODE_KEY, enabled ? 'true' : 'false');
     } catch {
-      Alert.alert('Erreur', 'Impossible d'enregistrer le mode administrateur.');
+      Alert.alert('Erreur', "Impossible d'enregistrer le mode administrateur.");
       setIsAdminMode(!enabled);
     }
   };
@@ -114,7 +114,7 @@ export default function ProfileScreen() {
     if (status !== 'granted') {
       Alert.alert(
         'Permission requise',
-        'Nkap a besoin d'accéder à votre galerie pour changer votre photo de profil.'
+        "Nkap a besoin d'accéder à votre galerie pour changer votre photo de profil."
       );
       return;
     }
@@ -135,7 +135,7 @@ export default function ProfileScreen() {
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission requise', 'Nkap a besoin d'accéder à votre caméra.');
+      Alert.alert('Permission requise', "Nkap a besoin d'accéder à votre caméra.");
       return;
     }
 
