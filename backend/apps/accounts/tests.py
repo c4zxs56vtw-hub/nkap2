@@ -71,3 +71,42 @@ class AuthEndpointsTestCase(APITestCase):
         self.assertEqual(user.last_name, "Test User Name")
         self.assertEqual(user.mobile_money_number, "677889900")
         self.assertTrue(user.identity_document.name.startswith("kyc_documents/"))
+
+        # 5. Test Messaging System (GET messages)
+        messages_url = reverse("tontine-messages", kwargs={"tontine_id": 101})
+        response_messages = self.client.get(messages_url)
+        self.assertEqual(response_messages.status_code, status.HTTP_200_OK)
+        # Verify seeded messages are returned
+        self.assertGreaterEqual(len(response_messages.data), 5)
+        # Check that the first message has senderName and role matching Sarah
+        self.assertEqual(response_messages.data[0]["senderName"], "Sarah Douala")
+        self.assertEqual(response_messages.data[0]["senderRole"], "TRÉSORIER")
+
+        # 6. Test sending a message (POST message)
+        post_msg_data = {"content": "Hello team!", "type": "text"}
+        response_send = self.client.post(messages_url, post_msg_data, format="json")
+        self.assertEqual(response_send.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response_send.data["content"], "Hello team!")
+        self.assertTrue(response_send.data["isMe"])
+
+        # 7. Test chatbot trigger (sending message with momo/argent keyword)
+        post_momo_data = {"content": "Je viens de payer par momo", "type": "text"}
+        response_momo = self.client.post(messages_url, post_momo_data, format="json")
+        self.assertEqual(response_momo.status_code, status.HTTP_201_CREATED)
+        
+        # Verify that bot responses were created in the DB
+        response_messages_after = self.client.get(messages_url)
+        # It should contain the user's message, Sarah's response, and the system verification message
+        latest_msgs = response_messages_after.data[-2:]
+        self.assertEqual(latest_msgs[0]["senderName"], "Sarah Douala")
+        self.assertEqual(latest_msgs[0]["content"], "C’est parfait ! C’est bien reçu et enregistré. Merci pour ton versement rapide ! 👍🏽")
+        self.assertEqual(latest_msgs[1]["type"], "system")
+        self.assertEqual(latest_msgs[1]["content"], "Versement de 150 000 FCFA validé par le système.")
+
+        # 8. Test Simulation endpoint
+        sim_url = reverse("tontine-messages-simulate", kwargs={"tontine_id": 101})
+        sim_data = {"type": "system_payment"}
+        response_sim = self.client.post(sim_url, sim_data, format="json")
+        self.assertEqual(response_sim.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response_sim.data["type"], "system")
+        self.assertEqual(response_sim.data["content"], "Versement de 150 000 FCFA validé par le système.")

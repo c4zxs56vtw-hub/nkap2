@@ -7,7 +7,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from apps.accounts.models import User, Tontine
+from apps.accounts.models import User, Tontine, Message
 from apps.common.utils import normalize_phone_number
 
 
@@ -188,3 +188,62 @@ class LogoutSerializer(serializers.Serializer):
             RefreshToken(self.refresh_token).blacklist()
         except TokenError as exc:
             raise serializers.ValidationError({"refresh": "Refresh token is invalid or expired."}) from exc
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    senderName = serializers.SerializerMethodField()
+    senderRole = serializers.SerializerMethodField()
+    timestamp = serializers.SerializerMethodField()
+    isMe = serializers.SerializerMethodField()
+    type = serializers.CharField(source="message_type")
+    imageUrl = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Message
+        fields = [
+            "id",
+            "senderName",
+            "senderRole",
+            "content",
+            "timestamp",
+            "isMe",
+            "type",
+            "imageUrl",
+            "status",
+        ]
+
+    def get_senderName(self, obj) -> str | None:
+        if obj.message_type == "system" or not obj.sender:
+            return None
+        return obj.sender.get_full_name() or obj.sender.phone_number
+
+    def get_senderRole(self, obj) -> str | None:
+        if obj.message_type == "system" or not obj.sender:
+            return None
+        sender_name = obj.sender.get_full_name()
+        if (sender_name and obj.tontine.treasurer_name and sender_name.strip().lower() == obj.tontine.treasurer_name.strip().lower()) or obj.sender.is_staff:
+            return "TRÉSORIER"
+        return "MEMBRE"
+
+    def get_timestamp(self, obj) -> str:
+        from django.utils import timezone
+        local_dt = timezone.localtime(obj.created_at)
+        return local_dt.strftime("%H:%M")
+
+    def get_isMe(self, obj) -> bool:
+        request = self.context.get("request")
+        if request and request.user and obj.sender:
+            return request.user.id == obj.sender.id
+        return False
+
+    def get_imageUrl(self, obj) -> str | None:
+        if obj.image:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return obj.external_image_url
+
+    def get_status(self, obj) -> str:
+        return "read"

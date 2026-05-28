@@ -19,10 +19,9 @@ import { useResponsive } from '../hooks/use-responsive';
 import { safeGoBack } from '../utils/safeNavigation';
 import {
   getTontineById,
-  loadTontineMessages,
-  saveTontineMessages,
   type TontineChatMessage,
 } from '../services/tontineChatService';
+import api from '../services/api';
 
 export default function TontineChatScreen() {
   const router = useRouter();
@@ -46,25 +45,24 @@ export default function TontineChatScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    let active = true;
-    const init = async () => {
-      const loaded = await loadTontineMessages(tontineId);
-      if (active) {
-        setMessages(loaded);
-        setChatReady(true);
-      }
-    };
-    init();
-    return () => {
-      active = false;
-    };
-  }, [tontineId]);
+  const fetchMessages = async () => {
+    try {
+      const response = await api.get(`/auth/tontines/${tontineId}/messages/`);
+      setMessages(response.data);
+      setChatReady(true);
+    } catch (error) {
+      console.error('Failed to fetch tontine messages:', error);
+    }
+  };
 
   useEffect(() => {
-    if (!chatReady || messages.length === 0) return;
-    saveTontineMessages(tontineId, messages);
-  }, [messages, chatReady, tontineId]);
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 3000); // Polling every 3 seconds
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [tontineId]);
 
   // Auto-scroll to bottom when messages or typing status changes
   const scrollToBottom = () => {
@@ -78,167 +76,49 @@ export default function TontineChatScreen() {
   }, [messages, isTyping]);
 
   // Handle sending a message
-  const handleSend = () => {
-    if (!inputText.trim()) return;
+  const handleSend = async () => {
+    const textToSend = inputText.trim();
+    if (!textToSend) return;
 
-    const userMsg: TontineChatMessage = {
-      id: Date.now().toString(),
-      content: inputText,
-      timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      isMe: true,
-      type: 'text',
-      status: 'read',
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
     setInputText('');
 
-    // Trigger simulated replies
-    simulateResponses(inputText);
-  };
-
-  // Bot responses based on user input
-  const simulateResponses = (text: string) => {
-    const textLower = text.toLowerCase();
-
-    // 1. Respond as Sarah Douala
-    if (textLower.includes('argent') || textLower.includes('envoyé') || textLower.includes('payé') || textLower.includes('momo') || textLower.includes('versement')) {
-      setIsTyping(treasurerName);
-      setTimeout(() => {
-        setIsTyping(null);
-        const newMsg: TontineChatMessage = {
-          id: `sarah-${Date.now()}`,
-          senderName: treasurerName,
-          senderRole: 'TRÉSORIER',
-          content: 'C’est parfait ! C’est bien reçu et enregistré. Merci pour ton versement rapide ! 👍🏽',
-          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-          isMe: false,
-          type: 'text',
-        };
-        setMessages((prev) => [...prev, newMsg]);
-
-        // Auto trigger system confirmation 2s later
-        setTimeout(() => {
-          const sysMsg: TontineChatMessage = {
-            id: `sys-${Date.now()}`,
-            content: 'Versement de 150 000 FCFA validé par le système.',
-            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-            isMe: false,
-            type: 'system',
-          };
-          setMessages((prev) => [...prev, sysMsg]);
-        }, 1500);
-
-      }, 2000);
-    }
-    // 2. Respond as Marc N'diaye
-    else if (
-      textLower.includes('voyage') ||
-      textLower.includes('billet') ||
-      textLower.includes('avion') ||
-      textLower.includes('weekend') ||
-      textLower.includes('vacances') ||
-      textLower.includes('scolar') ||
-      textLower.includes('école')
-    ) {
-      setIsTyping(memberName);
-      setTimeout(() => {
-        setIsTyping(null);
-        const newMsg: TontineChatMessage = {
-          id: `marc-${Date.now()}`,
-          senderName: memberName,
-          senderRole: 'MEMBRE',
-          content: 'Carrément ! Moi je regarde déjà les vols de nuit, c’est souvent moins cher et plus pratique.',
-          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-          isMe: false,
-          type: 'text',
-        };
-        setMessages((prev) => [...prev, newMsg]);
-      }, 2500);
-    }
-    // 3. Generic greetings
-    else {
-      setIsTyping(treasurerName);
-      setTimeout(() => {
-        setIsTyping(null);
-        const newMsg: TontineChatMessage = {
-          id: `sarah-${Date.now()}`,
-          senderName: treasurerName,
-          senderRole: 'TRÉSORIER',
-          content: 'Salut ! J’espère que tout se passe bien de ton côté. On avance super bien sur cette tontine ! 🙌',
-          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-          isMe: false,
-          type: 'text',
-        };
-        setMessages((prev) => [...prev, newMsg]);
-      }, 2000);
+    try {
+      const response = await api.post(`/auth/tontines/${tontineId}/messages/`, {
+        content: textToSend,
+        type: 'text',
+      });
+      setMessages((prev) => [...prev, response.data]);
+      fetchMessages();
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      Alert.alert('Erreur', "Impossible d'envoyer le message. Veuillez réessayer.");
     }
   };
 
   // Simulation helpers for the Simulation Panel
-  const handleSimulateImageSend = () => {
-    const imgMsg: TontineChatMessage = {
-      id: `me-img-${Date.now()}`,
-      content: undefined,
-      timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      isMe: true,
-      type: 'image',
-      imageUrl: 'https://images.unsplash.com/photo-1554224311-beee415c201f?w=500&auto=format&fit=crop&q=60',
-      status: 'read',
-    };
-    setMessages((prev) => [...prev, imgMsg]);
-    setTimeout(() => triggerSimulation('sarah_image'), 1200);
+  const handleSimulateImageSend = async () => {
+    try {
+      await api.post(`/auth/tontines/${tontineId}/messages/`, {
+        content: '',
+        type: 'image',
+        external_image_url: 'https://images.unsplash.com/photo-1554224311-beee415c201f?w=500&auto=format&fit=crop&q=60',
+      });
+      fetchMessages();
+      setTimeout(() => triggerSimulation('sarah_image'), 1200);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  const triggerSimulation = (type: 'system_payment' | 'sarah_image' | 'marc_message' | 'admin_broadcast') => {
+  const triggerSimulation = async (
+    type: 'system_payment' | 'sarah_image' | 'marc_message' | 'admin_broadcast'
+  ) => {
     setShowSimPanel(false);
-
-    if (type === 'system_payment') {
-      const sysMsg: TontineChatMessage = {
-        id: `sys-sim-${Date.now()}`,
-        content: 'Versement de 150 000 FCFA validé par le système.',
-        timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-        isMe: false,
-        type: 'system',
-      };
-      setMessages((prev) => [...prev, sysMsg]);
-    } else if (type === 'sarah_image') {
-      const imgMsg: TontineChatMessage = {
-        id: `sarah-img-sim-${Date.now()}`,
-        senderName: treasurerName,
-        senderRole: 'TRÉSORIER',
-        timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-        isMe: false,
-        type: 'image',
-        imageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
-      };
-      setMessages((prev) => [...prev, imgMsg]);
-    } else if (type === 'marc_message') {
-      setIsTyping(memberName);
-      setTimeout(() => {
-        setIsTyping(null);
-        const txtMsg: TontineChatMessage = {
-          id: `marc-txt-sim-${Date.now()}`,
-          senderName: memberName,
-          senderRole: 'MEMBRE',
-          content: 'Confirmé pour ma part ! Je participe bien au prochain tour. On se tient au courant pour les billets. ✈️',
-          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-          isMe: false,
-          type: 'text',
-        };
-        setMessages((prev) => [...prev, txtMsg]);
-      }, 1000);
-    } else if (type === 'admin_broadcast') {
-      const adminMsg: TontineChatMessage = {
-        id: `admin-sim-${Date.now()}`,
-        senderName: 'Support Nkap',
-        senderRole: 'ADMIN',
-        content: '📢 Message officiel : Une maintenance programmée de la plateforme aura lieu ce dimanche à 22h. Les transactions de tontines resteront sécurisées.',
-        timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-        isMe: false,
-        type: 'text',
-      };
-      setMessages((prev) => [...prev, adminMsg]);
+    try {
+      await api.post(`/auth/tontines/${tontineId}/messages/simulate/`, { type });
+      fetchMessages();
+    } catch (error) {
+      console.error('Failed to trigger simulation:', error);
     }
   };
 

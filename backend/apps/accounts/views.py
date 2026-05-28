@@ -9,8 +9,10 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.serializers import LoginSerializer, LogoutSerializer, RegisterSerializer, UserSerializer
+from apps.accounts.serializers import LoginSerializer, LogoutSerializer, RegisterSerializer, UserSerializer, MessageSerializer
 from apps.common.constants import KYCStatus
+from django.shortcuts import get_object_or_404
+from apps.accounts.models import Tontine, Message, User
 
 
 class RegisterAPIView(CreateAPIView):
@@ -85,3 +87,154 @@ class LogoutAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TontineMessagesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, tontine_id):
+        tontine = get_object_or_404(Tontine, id=tontine_id)
+        messages = tontine.messages.all().order_by("created_at")
+        serializer = MessageSerializer(messages, many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, tontine_id):
+        tontine = get_object_or_404(Tontine, id=tontine_id)
+        content = request.data.get("content", "").strip()
+        message_type = request.data.get("type", "text")
+        image = request.FILES.get("image")
+        external_image_url = request.data.get("external_image_url")
+
+        message = Message.objects.create(
+            tontine=tontine,
+            sender=request.user,
+            content=content,
+            message_type=message_type,
+            image=image,
+            external_image_url=external_image_url
+        )
+
+        # Trigger backend chatbot responses
+        if message_type == "text" and content:
+            self._trigger_bot_response(tontine, content)
+
+        serializer = MessageSerializer(message, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def _trigger_bot_response(self, tontine, content):
+        text_lower = content.lower()
+        
+        def get_bot_user(phone):
+            try:
+                return User.objects.get(phone_number=phone)
+            except User.DoesNotExist:
+                return None
+
+        if tontine.id == 101:  # Voyage 2024
+            sarah = get_bot_user("237690000001")
+            marc = get_bot_user("237690000002")
+
+            if any(k in text_lower for k in ["argent", "envoyé", "payé", "momo", "versement"]):
+                if sarah:
+                    Message.objects.create(
+                        tontine=tontine,
+                        sender=sarah,
+                        content="C’est parfait ! C’est bien reçu et enregistré. Merci pour ton versement rapide ! 👍🏽",
+                        message_type="text"
+                    )
+                Message.objects.create(
+                    tontine=tontine,
+                    sender=None,
+                    content="Versement de 150 000 FCFA validé par le système.",
+                    message_type="system"
+                )
+            elif any(k in text_lower for k in ["voyage", "billet", "avion", "weekend", "vacances", "scolar", "école"]):
+                if marc:
+                    Message.objects.create(
+                        tontine=tontine,
+                        sender=marc,
+                        content="Carrément ! Moi je regarde déjà les vols de nuit, c’est souvent moins cher et plus pratique.",
+                        message_type="text"
+                    )
+            else:
+                if sarah:
+                    Message.objects.create(
+                        tontine=tontine,
+                        sender=sarah,
+                        content="Salut ! J’espère que tout se passe bien de ton côté. On avance super bien sur cette tontine ! 🙌",
+                        message_type="text"
+                    )
+
+        elif tontine.id == 102:  # Épargne Famille
+            aminata = get_bot_user("237690000003")
+            if any(k in text_lower for k in ["momo", "argent", "cotis", "payé", "versement"]):
+                if aminata:
+                    Message.objects.create(
+                        tontine=tontine,
+                        sender=aminata,
+                        content="Merci pour le versement ! Je valide dès réception de la notification MoMo.",
+                        message_type="text"
+                    )
+
+        elif tontine.id == 103:  # Scolarité Septembre
+            marie = get_bot_user("237690000005")
+            if any(k in text_lower for k in ["frais", "scolarité", "rentrée", "payé"]):
+                if marie:
+                    Message.objects.create(
+                        tontine=tontine,
+                        sender=marie,
+                        content="Merci de veiller à ce que tout soit réglé avant le 15, c'est crucial pour l'école.",
+                        message_type="text"
+                    )
+
+
+class TontineMessagesSimulateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, tontine_id):
+        tontine = get_object_or_404(Tontine, id=tontine_id)
+        sim_type = request.data.get("type")
+        
+        def get_bot_user(phone):
+            try:
+                return User.objects.get(phone_number=phone)
+            except User.DoesNotExist:
+                return None
+
+        sarah = get_bot_user("237690000001")
+        marc = get_bot_user("237690000002")
+
+        if sim_type == "system_payment":
+            msg = Message.objects.create(
+                tontine=tontine,
+                sender=None,
+                content="Versement de 150 000 FCFA validé par le système.",
+                message_type="system"
+            )
+        elif sim_type == "sarah_image":
+            msg = Message.objects.create(
+                tontine=tontine,
+                sender=sarah,
+                content="",
+                message_type="image",
+                external_image_url="https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3"
+            )
+        elif sim_type == "marc_message":
+            msg = Message.objects.create(
+                tontine=tontine,
+                sender=marc,
+                content="Confirmé pour ma part ! Je participe bien au prochain tour. On se tient au courant pour les billets. ✈️",
+                message_type="text"
+            )
+        elif sim_type == "admin_broadcast":
+            msg = Message.objects.create(
+                tontine=tontine,
+                sender=None,
+                content="📢 Message officiel : Une maintenance programmée de la plateforme aura lieu ce dimanche à 22h. Les transactions de tontines resteront sécurisées.",
+                message_type="text"
+            )
+        else:
+            return Response({"error": "Invalid simulation type"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = MessageSerializer(msg, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -101,3 +101,27 @@ class Tontine(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class Message(models.Model):
+    MESSAGE_TYPES = (
+        ("text", "Text"),
+        ("system", "System"),
+        ("image", "Image"),
+    )
+    
+    tontine = models.ForeignKey(Tontine, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_messages", null=True, blank=True)
+    content = models.TextField(blank=True)
+    message_type = models.CharField(max_length=10, choices=MESSAGE_TYPES, default="text")
+    image = models.ImageField(upload_to="chat_images/", null=True, blank=True)
+    external_image_url = models.URLField(max_length=1000, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        sender_name = self.sender.get_full_name() if self.sender else "System"
+        return f"{sender_name}: {self.content[:30]}"
+
