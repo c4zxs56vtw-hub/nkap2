@@ -9,10 +9,12 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.accounts.serializers import LoginSerializer, LogoutSerializer, RegisterSerializer, UserSerializer, MessageSerializer
+from apps.accounts.serializers import LoginSerializer, LogoutSerializer, RegisterSerializer, UserSerializer, MessageSerializer, TransactionSerializer
 from apps.common.constants import KYCStatus
 from django.shortcuts import get_object_or_404
-from apps.accounts.models import Tontine, Message, User
+from apps.accounts.models import Tontine, Message, User, Transaction
+from django.utils import timezone
+import datetime
 
 
 class RegisterAPIView(CreateAPIView):
@@ -238,3 +240,26 @@ class TontineMessagesSimulateAPIView(APIView):
 
         serializer = MessageSerializer(msg, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class TransactionListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        transactions = Transaction.objects.filter(user=request.user).order_by("-created_at")
+        
+        # Calcul des totaux sur les 30 derniers jours (transactions validées)
+        thirty_days_ago = timezone.now() - datetime.timedelta(days=30)
+        recent = transactions.filter(status="completed", created_at__gte=thirty_days_ago)
+        
+        total_in = sum(float(t.amount) for t in recent if float(t.amount) > 0)
+        total_out = sum(abs(float(t.amount)) for t in recent if float(t.amount) < 0)
+        
+        serializer = TransactionSerializer(transactions, many=True)
+        return Response({
+            "transactions": serializer.data,
+            "totals": {
+                "in": total_in,
+                "out": total_out,
+            }
+        }, status=status.HTTP_200_OK)

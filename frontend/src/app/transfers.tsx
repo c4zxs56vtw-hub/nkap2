@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useResponsive } from '../hooks/use-responsive';
 import { safeGoBack } from '../utils/safeNavigation';
+import api from '../services/api';
 
 type TransferDirection = 'out' | 'in';
 type TransferStatus = 'completed' | 'pending' | 'failed';
@@ -31,106 +34,10 @@ interface TransferItem {
   iconColor: string;
 }
 
-const RECENT_TRANSFERS: TransferItem[] = [
-  {
-    id: '1',
-    label: 'Cotisation — Voyage 2024',
-    subtitle: 'Tontine · Collectif Famille',
-    amount: -150000,
-    direction: 'out',
-    status: 'completed',
-    dateLabel: "Aujourd'hui",
-    time: '09:18',
-    method: 'Portefeuille Nkap',
-    icon: 'airplane',
-    iconBg: '#06b6d41a',
-    iconColor: '#00687a',
-  },
-  {
-    id: '2',
-    label: 'Versement reçu',
-    subtitle: 'Tontine · Épargne Famille',
-    amount: 80000,
-    direction: 'in',
-    status: 'completed',
-    dateLabel: "Aujourd'hui",
-    time: '08:42',
-    method: 'Mobile Money',
-    icon: 'home',
-    iconBg: '#6cf8bb33',
-    iconColor: '#006c49',
-  },
-  {
-    id: '3',
-    label: 'Envoi à Sarah Douala',
-    subtitle: '+237 677 554 433',
-    amount: -25000,
-    direction: 'out',
-    status: 'completed',
-    dateLabel: 'Hier',
-    time: '17:05',
-    method: 'Orange Money',
-    icon: 'send',
-    iconBg: '#0284c71a',
-    iconColor: '#0284c7',
-  },
-  {
-    id: '4',
-    label: 'Cotisation — Scolarité Septembre',
-    subtitle: 'Tontine · Privé',
-    amount: -150000,
-    direction: 'out',
-    status: 'pending',
-    dateLabel: 'Hier',
-    time: '11:30',
-    method: 'MTN MoMo',
-    icon: 'school',
-    iconBg: '#ffd9e41f',
-    iconColor: '#b4136d',
-  },
-  {
-    id: '5',
-    label: 'Remboursement Nkap',
-    subtitle: 'Excédent tour précédent',
-    amount: 45000,
-    direction: 'in',
-    status: 'completed',
-    dateLabel: 'Cette semaine',
-    time: 'Lun. 14:20',
-    method: 'Compte lié',
-    icon: 'cash-refund',
-    iconBg: '#10b9811a',
-    iconColor: '#10B981',
-  },
-  {
-    id: '6',
-    label: 'Retrait vers banque',
-    subtitle: 'Afriland First Bank',
-    amount: -500000,
-    direction: 'out',
-    status: 'failed',
-    dateLabel: 'Cette semaine',
-    time: 'Dim. 09:00',
-    method: 'Virement bancaire',
-    icon: 'bank-transfer-out',
-    iconBg: '#fef2f2',
-    iconColor: '#b4136d',
-  },
-  {
-    id: '7',
-    label: 'Cotisation — Voyage 2024',
-    subtitle: 'Tontine · Tour #4',
-    amount: -150000,
-    direction: 'out',
-    status: 'completed',
-    dateLabel: 'Cette semaine',
-    time: 'Sam. 10:15',
-    method: 'Portefeuille Nkap',
-    icon: 'airplane',
-    iconBg: '#06b6d41a',
-    iconColor: '#00687a',
-  },
-];
+interface Totals {
+  in: number;
+  out: number;
+}
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'Tous' },
@@ -143,9 +50,9 @@ function formatAmount(amount: number): string {
   return amount >= 0 ? `+${abs} FCFA` : `−${abs} FCFA`;
 }
 
-function statusLabel(status: TransferStatus): string {
-  if (status === 'completed') return 'Validé';
-  if (status === 'pending') return 'En cours';
+function statusLabel(s: TransferStatus): string {
+  if (s === 'completed') return 'Validé';
+  if (s === 'pending') return 'En cours';
   return 'Échoué';
 }
 
@@ -155,13 +62,42 @@ export default function TransfersScreen() {
   const { isWeb } = useResponsive();
   const [filter, setFilter] = useState<FilterKey>('all');
 
+  const [transactions, setTransactions] = useState<TransferItem[]>([]);
+  const [totals, setTotals] = useState<Totals>({ in: 0, out: 0 });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const bottomPadding = Math.max(insets.bottom, 8);
 
+  const fetchTransactions = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+
+      const response = await api.get('/auth/transactions/');
+      const data = response.data;
+
+      setTransactions(data.transactions ?? []);
+      setTotals(data.totals ?? { in: 0, out: 0 });
+    } catch (err: any) {
+      setError('Impossible de charger les transactions. Vérifiez votre connexion.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
   const filtered = useMemo(() => {
-    if (filter === 'all') return RECENT_TRANSFERS;
-    if (filter === 'out') return RECENT_TRANSFERS.filter((t) => t.direction === 'out');
-    return RECENT_TRANSFERS.filter((t) => t.direction === 'in');
-  }, [filter]);
+    if (filter === 'all') return transactions;
+    if (filter === 'out') return transactions.filter((t) => t.direction === 'out' || t.amount < 0);
+    return transactions.filter((t) => t.direction === 'in' || t.amount >= 0);
+  }, [filter, transactions]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, TransferItem[]>();
@@ -173,12 +109,99 @@ export default function TransfersScreen() {
     return Array.from(map.entries());
   }, [filtered]);
 
-  const totals = useMemo(() => {
-    const completed = RECENT_TRANSFERS.filter((t) => t.status === 'completed');
-    const inSum = completed.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-    const outSum = completed.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
-    return { inSum, outSum };
-  }, []);
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00687a" />
+          <Text style={styles.loadingText}>Chargement des transactions…</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.emptyState}>
+          <MaterialCommunityIcons name="wifi-off" size={48} color="#dee3e6" />
+          <Text style={styles.emptyTitle}>Erreur de connexion</Text>
+          <Text style={styles.emptySubtitle}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => fetchTransactions()} activeOpacity={0.8}>
+            <Text style={styles.retryText}>Réessayer</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (grouped.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <MaterialCommunityIcons name="swap-horizontal" size={48} color="#dee3e6" />
+          <Text style={styles.emptyTitle}>Aucun transfert</Text>
+          <Text style={styles.emptySubtitle}>Modifiez le filtre pour voir d'autres opérations.</Text>
+        </View>
+      );
+    }
+
+    return grouped.map(([dateLabel, items]) => (
+      <View key={dateLabel} style={styles.section}>
+        <Text style={styles.sectionDate}>{dateLabel}</Text>
+        <View style={styles.listCard}>
+          {items.map((item, index) => (
+            <View key={item.id}>
+              <TouchableOpacity style={styles.transferRow} activeOpacity={0.85}>
+                <View style={[styles.transferIcon, { backgroundColor: item.iconBg }]}>
+                  <MaterialCommunityIcons name={item.icon as any} size={22} color={item.iconColor} />
+                </View>
+                <View style={styles.transferBody}>
+                  <View style={styles.transferTop}>
+                    <Text style={styles.transferLabel} numberOfLines={1}>
+                      {item.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.transferAmount,
+                        item.amount >= 0 ? styles.amountIn : styles.amountOut,
+                      ]}
+                    >
+                      {formatAmount(item.amount)}
+                    </Text>
+                  </View>
+                  <Text style={styles.transferSubtitle} numberOfLines={1}>
+                    {item.subtitle}
+                  </Text>
+                  <View style={styles.transferMeta}>
+                    <Text style={styles.transferMetaText}>
+                      {item.time} · {item.method}
+                    </Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        item.status === 'completed' && styles.statusCompleted,
+                        item.status === 'pending' && styles.statusPending,
+                        item.status === 'failed' && styles.statusFailed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusText,
+                          item.status === 'completed' && styles.statusTextCompleted,
+                          item.status === 'pending' && styles.statusTextPending,
+                          item.status === 'failed' && styles.statusTextFailed,
+                        ]}
+                      >
+                        {statusLabel(item.status)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+              {index < items.length - 1 ? <View style={styles.rowDivider} /> : null}
+            </View>
+          ))}
+        </View>
+      </View>
+    ));
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -203,23 +226,33 @@ export default function TransfersScreen() {
             { paddingBottom: isWeb ? 32 : 96 + bottomPadding },
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchTransactions(true)}
+              colors={['#00687a']}
+              tintColor="#00687a"
+            />
+          }
         >
+          {/* Carte résumé */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryCol}>
               <Text style={styles.summaryLabel}>Reçus (30 j)</Text>
               <Text style={[styles.summaryValue, styles.summaryIn]}>
-                +{totals.inSum.toLocaleString('fr-FR')} FCFA
+                {loading ? '—' : `+${totals.in.toLocaleString('fr-FR')} FCFA`}
               </Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryCol}>
               <Text style={styles.summaryLabel}>Envoyés (30 j)</Text>
               <Text style={[styles.summaryValue, styles.summaryOut]}>
-                −{totals.outSum.toLocaleString('fr-FR')} FCFA
+                {loading ? '—' : `−${totals.out.toLocaleString('fr-FR')} FCFA`}
               </Text>
             </View>
           </View>
 
+          {/* Filtres */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
             <View style={styles.filterRow}>
               {FILTERS.map((f) => (
@@ -237,73 +270,7 @@ export default function TransfersScreen() {
             </View>
           </ScrollView>
 
-          {grouped.length === 0 ? (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="swap-horizontal" size={48} color="#dee3e6" />
-              <Text style={styles.emptyTitle}>Aucun transfert</Text>
-              <Text style={styles.emptySubtitle}>Modifiez le filtre pour voir d’autres opérations.</Text>
-            </View>
-          ) : (
-            grouped.map(([dateLabel, items]) => (
-              <View key={dateLabel} style={styles.section}>
-                <Text style={styles.sectionDate}>{dateLabel}</Text>
-                <View style={styles.listCard}>
-                  {items.map((item, index) => (
-                    <View key={item.id}>
-                      <TouchableOpacity style={styles.transferRow} activeOpacity={0.85}>
-                        <View style={[styles.transferIcon, { backgroundColor: item.iconBg }]}>
-                          <MaterialCommunityIcons name={item.icon as any} size={22} color={item.iconColor} />
-                        </View>
-                        <View style={styles.transferBody}>
-                          <View style={styles.transferTop}>
-                            <Text style={styles.transferLabel} numberOfLines={1}>
-                              {item.label}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.transferAmount,
-                                item.amount >= 0 ? styles.amountIn : styles.amountOut,
-                              ]}
-                            >
-                              {formatAmount(item.amount)}
-                            </Text>
-                          </View>
-                          <Text style={styles.transferSubtitle} numberOfLines={1}>
-                            {item.subtitle}
-                          </Text>
-                          <View style={styles.transferMeta}>
-                            <Text style={styles.transferMetaText}>
-                              {item.time} · {item.method}
-                            </Text>
-                            <View
-                              style={[
-                                styles.statusBadge,
-                                item.status === 'completed' && styles.statusCompleted,
-                                item.status === 'pending' && styles.statusPending,
-                                item.status === 'failed' && styles.statusFailed,
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.statusText,
-                                  item.status === 'completed' && styles.statusTextCompleted,
-                                  item.status === 'pending' && styles.statusTextPending,
-                                  item.status === 'failed' && styles.statusTextFailed,
-                                ]}
-                              >
-                                {statusLabel(item.status)}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                      {index < items.length - 1 ? <View style={styles.rowDivider} /> : null}
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ))
-          )}
+          {renderContent()}
         </ScrollView>
 
         {!isWeb && (
@@ -450,7 +417,17 @@ const styles = StyleSheet.create({
   rowDivider: { height: 1, backgroundColor: '#eff4f7', marginLeft: 70 },
   emptyState: { alignItems: 'center', paddingVertical: 48, gap: 8 },
   emptyTitle: { color: '#171d1e', fontSize: 16, fontWeight: '700' },
-  emptySubtitle: { color: '#6d797d', fontSize: 13 },
+  emptySubtitle: { color: '#6d797d', fontSize: 13, textAlign: 'center' },
+  loadingContainer: { alignItems: 'center', paddingVertical: 48, gap: 12 },
+  loadingText: { color: '#6d797d', fontSize: 13 },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: '#00687a',
+    borderRadius: 12,
+  },
+  retryText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
   bottomNav: {
     position: 'absolute',
     left: 0,

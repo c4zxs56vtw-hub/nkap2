@@ -125,3 +125,41 @@ class Message(models.Model):
         sender_name = self.sender.get_full_name() if self.sender else "System"
         return f"{sender_name}: {self.content[:30]}"
 
+
+class Transaction(models.Model):
+    STATUS_CHOICES = (
+        ("completed", "Completed"),
+        ("pending", "Pending"),
+        ("failed", "Failed"),
+    )
+    DIRECTION_CHOICES = (
+        ("in", "Incoming"),
+        ("out", "Outgoing"),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transactions")
+    label = models.CharField(max_length=255)
+    subtitle = models.CharField(max_length=255, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    direction = models.CharField(max_length=3, choices=DIRECTION_CHOICES)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="completed")
+    method = models.CharField(max_length=100, blank=True)
+    icon = models.CharField(max_length=54, default="cash")
+    icon_bg = models.CharField(max_length=20, default="#eff4f7")
+    icon_color = models.CharField(max_length=20, default="#00687a")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if self.amount >= 0:
+            self.direction = "in"
+        else:
+            self.direction = "out"
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.user.username} - {self.label}: {self.amount}"
+
+

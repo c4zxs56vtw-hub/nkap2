@@ -7,7 +7,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from apps.accounts.models import User, Tontine, Message
+from apps.accounts.models import User, Tontine, Message, Transaction
 from apps.common.utils import normalize_phone_number
 
 
@@ -137,6 +137,99 @@ class RegisterSerializer(serializers.ModelSerializer):
                 t.members.add(user)
         except Exception:
             pass
+
+        # Créer les transactions de démo pour le nouvel utilisateur
+        try:
+            from django.utils import timezone
+            import datetime
+            from apps.accounts.models import Transaction
+            now = timezone.now()
+            Transaction.objects.create(
+                user=user,
+                label='Cotisation — Voyage 2024',
+                subtitle='Tontine · Collectif Famille',
+                amount=-150000.00,
+                status='completed',
+                method='Portefeuille Nkap',
+                icon='airplane',
+                icon_bg='#06b6d41a',
+                icon_color='#00687a',
+                created_at=now - datetime.timedelta(hours=2)
+            )
+            Transaction.objects.create(
+                user=user,
+                label='Versement reçu',
+                subtitle='Tontine · Épargne Famille',
+                amount=80000.00,
+                status='completed',
+                method='Mobile Money',
+                icon='home',
+                icon_bg='#6cf8bb33',
+                icon_color='#006c49',
+                created_at=now - datetime.timedelta(hours=4)
+            )
+            Transaction.objects.create(
+                user=user,
+                label='Envoi à Sarah Douala',
+                subtitle='+237 677 554 433',
+                amount=-25000.00,
+                status='completed',
+                method='Orange Money',
+                icon='send',
+                icon_bg='#0284c71a',
+                icon_color='#0284c7',
+                created_at=now - datetime.timedelta(days=1, hours=2)
+            )
+            Transaction.objects.create(
+                user=user,
+                label='Cotisation — Scolarité Septembre',
+                subtitle='Tontine · Privé',
+                amount=-150000.00,
+                status='pending',
+                method='MTN MoMo',
+                icon='school',
+                icon_bg='#ffd9e41f',
+                icon_color='#b4136d',
+                created_at=now - datetime.timedelta(days=1, hours=8)
+            )
+            Transaction.objects.create(
+                user=user,
+                label='Remboursement Nkap',
+                subtitle='Excédent tour précédent',
+                amount=45000.00,
+                status='completed',
+                method='Compte lié',
+                icon='cash-refund',
+                icon_bg='#10b9811a',
+                icon_color='#10B981',
+                created_at=now - datetime.timedelta(days=3)
+            )
+            Transaction.objects.create(
+                user=user,
+                label='Retrait vers banque',
+                subtitle='Afriland First Bank',
+                amount=-500000.00,
+                status='failed',
+                method='Virement bancaire',
+                icon='bank-transfer-out',
+                icon_bg='#fef2f2',
+                icon_color='#b4136d',
+                created_at=now - datetime.timedelta(days=4)
+            )
+            Transaction.objects.create(
+                user=user,
+                label='Cotisation — Voyage 2024',
+                subtitle='Tontine · Tour #4',
+                amount=-150000.00,
+                status='completed',
+                method='Portefeuille Nkap',
+                icon='airplane',
+                icon_bg='#06b6d41a',
+                icon_color='#00687a',
+                created_at=now - datetime.timedelta(days=5)
+            )
+        except Exception:
+            pass
             
         return user
 
@@ -247,3 +340,62 @@ class MessageSerializer(serializers.ModelSerializer):
 
     def get_status(self, obj) -> str:
         return "read"
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    amount = serializers.SerializerMethodField()
+    dateLabel = serializers.SerializerMethodField()
+    time = serializers.SerializerMethodField()
+    iconBg = serializers.CharField(source="icon_bg")
+    iconColor = serializers.CharField(source="icon_color")
+
+    class Meta:
+        model = Transaction
+        fields = [
+            "id",
+            "label",
+            "subtitle",
+            "amount",
+            "direction",
+            "status",
+            "dateLabel",
+            "time",
+            "method",
+            "icon",
+            "iconBg",
+            "iconColor",
+        ]
+
+    def get_amount(self, obj) -> float:
+        return float(obj.amount)
+
+    def get_dateLabel(self, obj) -> str:
+        from django.utils import timezone
+        import datetime
+        now = timezone.localtime(timezone.now())
+        local_created = timezone.localtime(obj.created_at)
+        
+        diff = now.date() - local_created.date()
+        if diff == datetime.timedelta(days=0):
+            return "Aujourd'hui"
+        elif diff == datetime.timedelta(days=1):
+            return "Hier"
+        elif diff < datetime.timedelta(days=7):
+            return "Cette semaine"
+        else:
+            return local_created.strftime("%d/%m/%Y")
+
+    def get_time(self, obj) -> str:
+        from django.utils import timezone
+        import datetime
+        now = timezone.localtime(timezone.now())
+        local_created = timezone.localtime(obj.created_at)
+        
+        diff = now.date() - local_created.date()
+        if diff <= datetime.timedelta(days=1):
+            return local_created.strftime("%H:%M")
+        else:
+            days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"]
+            day_str = days[local_created.weekday()]
+            return f"{day_str}. {local_created.strftime('%H:%M')}"
+
