@@ -195,11 +195,19 @@ export default function ProfileScreen() {
           <View style={[styles.topBarInner, isWeb && { maxWidth: isDesktop ? 1100 : 800, alignSelf: 'center', width: '100%' }]}>
             <View style={styles.brandGroup}>
               <View style={styles.profileWrap}>
-                <Image
-                  source={require('../../assets/images/logo-glow.png')}
-                  style={styles.profileImage}
-                  resizeMode="cover"
-                />
+                {avatarUrl ? (
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.profileImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={require('../../assets/images/logo-glow.png')}
+                    style={styles.profileImage}
+                    resizeMode="cover"
+                  />
+                )}
                 <View style={styles.flagBadge}>
                   <Text style={styles.flagBadgeText}>CM</Text>
                 </View>
