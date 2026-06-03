@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { authService } from '../../services/authService';
 import { useResponsive } from '../../hooks/use-responsive';
+import { secureStore as SecureStore } from '../../utils/secureStore';
+import api from '../../services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -25,6 +27,35 @@ export default function LoginScreen() {
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const checkAutoLogin = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('user_token');
+        if (token) {
+          setLoading(true);
+          const response = await api.get('/auth/me/');
+          if (response.data) {
+            const status = String(response.data.kyc_status ?? '').toUpperCase();
+            await SecureStore.setItemAsync('user_status', status);
+            const hasUploadedDoc = !!response.data.identity_document;
+            if (status === 'VERIFIED') {
+              router.replace('/dashboard' as never);
+            } else if (hasUploadedDoc && (status === 'PENDING' || status === 'UNDER_REVIEW' || status === 'SUBMITTED')) {
+              router.replace('/auth/kyc-pending' as never);
+            } else {
+              router.replace('/auth/kyc' as never);
+            }
+          } else {
+            setLoading(false);
+          }
+        }
+      } catch {
+        setLoading(false);
+      }
+    };
+    checkAutoLogin();
+  }, []);
 
   const handleLogin = async () => {
     if (!phone || !pin) {

@@ -1,13 +1,38 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useResponsive } from '../../hooks/use-responsive';
+import { secureStore as SecureStore } from '../../utils/secureStore';
+import api from '../../services/api';
 
 export default function KycPendingScreen() {
   const router = useRouter();
   const { isWeb, contentMaxWidth } = useResponsive();
+
+  const checkKycStatus = async () => {
+    try {
+      const response = await api.get('/auth/me/');
+      if (response.data) {
+        const status = String(response.data.kyc_status ?? '').toUpperCase();
+        await SecureStore.setItemAsync('user_status', status);
+        if (status === 'VERIFIED') {
+          router.replace('/dashboard' as never);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    // Initial check
+    checkKycStatus();
+    // Poll every 4 seconds in the background
+    const interval = setInterval(checkKycStatus, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
