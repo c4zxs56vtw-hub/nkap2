@@ -24,13 +24,13 @@ const formatError = (error: any, defaultMsg: string): string => {
 
 export const authService = {
   /**
-   * Envoie le numéro et le code PIN au backend Django
+   * Envoie l'adresse e-mail et le mot de passe au backend Django
    */
-  login: async (phone: string, pin: string) => {
+  login: async (email: string, password: string) => {
     try {
       const response = await api.post('/auth/login/', {
-        phone_number: phone,
-        pin: pin,
+        email: email,
+        password: password,
       });
 
       // Si Django renvoie un token valide (ex: access token JWT)
@@ -52,12 +52,13 @@ export const authService = {
   /**
    * Crée un nouveau compte utilisateur
    */
-  register: async (fullName: string, phone: string, pin: string) => {
+  register: async (fullName: string, phone: string, email: string, password: string) => {
     try {
       const response = await api.post('/auth/register/', {
         full_name: fullName,
         phone_number: phone,
-        pin: pin,
+        email: email,
+        password: password,
       });
 
       if (response.data.token) {

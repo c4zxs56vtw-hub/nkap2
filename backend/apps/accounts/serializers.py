@@ -113,15 +113,17 @@ class UserSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(write_only=True, required=True)
-    pin = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(write_only=True, required=True)
     phone_number = serializers.CharField(write_only=True, required=True)
+    email = serializers.EmailField(write_only=True, required=True)
 
     class Meta:
         model = User
         fields = [
             "full_name",
             "phone_number",
-            "pin",
+            "email",
+            "password",
         ]
 
     def validate_phone_number(self, value):
@@ -132,14 +134,22 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ce numéro de téléphone est déjà utilisé.")
         return phone_number
 
-    def validate_pin(self, value):
-        if not value.isdigit() or len(value) != 4:
-            raise serializers.ValidationError("Le code PIN doit comporter exactement 4 chiffres.")
+    def validate_email(self, value):
+        email = value.strip().lower()
+        if not email:
+            raise serializers.ValidationError("L'adresse e-mail est requise.")
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError("Cette adresse e-mail est déjà utilisée.")
+        return email
+
+    def validate_password(self, value):
+        if len(value) < 4:
+            raise serializers.ValidationError("Le mot de passe doit comporter au moins 4 caractères.")
         return value
 
     def create(self, validated_data):
         full_name = validated_data.pop("full_name")
-        pin = validated_data.pop("pin")
+        password = validated_data.pop("password")
         
         # Séparer le nom complet
         parts = full_name.strip().split(' ', 1)
@@ -152,7 +162,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data["first_name"] = first_name
         validated_data["last_name"] = last_name
         
-        user = User.objects.create_user(password=pin, **validated_data)
+        user = User.objects.create_user(password=password, **validated_data)
         
         # Associer automatiquement le nouvel utilisateur aux tontines de démo
         try:
@@ -166,13 +176,12 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(TokenObtainPairSerializer):
-    phone_number = serializers.CharField(required=True)
-    pin = serializers.CharField(required=True, write_only=True)
-    email = serializers.EmailField(required=False, allow_blank=True)
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields.pop("username", None)
         self.fields.pop("password", None)
+        self.fields["email"] = serializers.EmailField(required=True)
+        self.fields["password"] = serializers.CharField(required=True, write_only=True)
 
     @classmethod
     def get_token(cls, user):
@@ -185,20 +194,15 @@ class LoginSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        phone_number = normalize_phone_number(attrs.get("phone_number"))
-        pin = attrs.get("pin")
         email = attrs.get("email")
+        password = attrs.get("password")
         
-        attrs[self.username_field] = phone_number
-        attrs["password"] = pin
+        attrs[self.username_field] = email
+        attrs["password"] = password
         
         data = super().validate(attrs)
         if self.user.is_blacklisted:
             raise AuthenticationFailed("Ce compte a été mis sur liste noire.")
-        
-        if email and not self.user.email:
-            self.user.email = email
-            self.user.save(update_fields=["email"])
         
         data["user"] = UserSerializer(self.user).data
         data["token"] = data["access"]

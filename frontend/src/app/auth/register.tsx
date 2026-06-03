@@ -23,13 +23,14 @@ export default function RegisterScreen() {
   const { isWeb, contentMaxWidth } = useResponsive();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!fullName.trim() || !phone || !pin || !confirmPin) {
+    if (!fullName.trim() || !phone || !email || !password || !confirmPassword) {
       Alert.alert('Champs requis', 'Veuillez remplir tous les champs.');
       return;
     }
@@ -37,17 +38,21 @@ export default function RegisterScreen() {
       Alert.alert('Nom invalide', 'Veuillez saisir votre nom complet.');
       return;
     }
-    if (!/^\d{4}$/.test(pin)) {
-      Alert.alert('Code PIN invalide', 'Le code PIN doit contenir exactement 4 chiffres.');
+    if (!email.includes('@')) {
+      Alert.alert('E-mail invalide', 'Veuillez saisir une adresse e-mail valide.');
       return;
     }
-    if (pin !== confirmPin) {
-      Alert.alert('Erreur de confirmation', 'Les deux codes PIN ne correspondent pas.');
+    if (password.length < 4) {
+      Alert.alert('Mot de passe invalide', 'Le mot de passe doit comporter au moins 4 caractères.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Erreur de confirmation', 'Les deux mots de passe ne correspondent pas.');
       return;
     }
     setLoading(true);
     try {
-      const data = await authService.register(fullName.trim(), phone, pin);
+      const data = await authService.register(fullName.trim(), phone, email, password);
       const status = String(data?.status ?? '').toUpperCase();
       const hasUploadedDoc = !!data?.user?.identity_document;
       if (status === 'VERIFIED') {
@@ -100,8 +105,8 @@ export default function RegisterScreen() {
               />
               <Text style={styles.title}>Créer un compte</Text>
               <Text style={styles.subtitle}>
-                Ouvrez votre compte Nkap en quelques secondes avec votre numéro de téléphone
-                et un code PIN sécurisé.
+                Ouvrez votre compte Nkap en quelques secondes avec votre adresse e-mail, téléphone
+                et un mot de passe sécurisé.
               </Text>
             </View>
 
@@ -140,23 +145,38 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.field}>
-                <Text style={styles.label}>Code PIN</Text>
+                <Text style={styles.label}>Adresse e-mail</Text>
+                <View style={styles.inputRow}>
+                  <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="exemple@domaine.com"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                    editable={!loading}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Mot de passe</Text>
                 <View style={styles.inputRow}>
                   <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
                   <TextInput
-                    style={styles.pinInput}
-                    placeholder="••••"
+                    style={styles.input}
+                    placeholder="Mot de passe"
                     placeholderTextColor="#9CA3AF"
-                    secureTextEntry={!showPin}
-                    keyboardType="numeric"
-                    maxLength={4}
-                    value={pin}
-                    onChangeText={setPin}
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
                     editable={!loading}
                   />
-                  <TouchableOpacity onPress={() => setShowPin((v) => !v)} hitSlop={8}>
+                  <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
                     <Ionicons
-                      name={showPin ? 'eye-off-outline' : 'eye-outline'}
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                       size={20}
                       color="#9CA3AF"
                     />
@@ -165,25 +185,23 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.field}>
-                <Text style={styles.label}>Confirmer le PIN</Text>
+                <Text style={styles.label}>Confirmer le mot de passe</Text>
                 <View style={styles.inputRow}>
                   <Ionicons name="shield-checkmark-outline" size={20} color="#9CA3AF" />
                   <TextInput
-                    style={styles.pinInput}
-                    placeholder="••••"
+                    style={styles.input}
+                    placeholder="Confirmer le mot de passe"
                     placeholderTextColor="#9CA3AF"
-                    secureTextEntry={!showPin}
-                    keyboardType="numeric"
-                    maxLength={4}
-                    value={confirmPin}
-                    onChangeText={setConfirmPin}
+                    secureTextEntry={!showPassword}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
                     editable={!loading}
                   />
                 </View>
               </View>
 
               <Text style={styles.note}>
-                Le PIN doit contenir 4 chiffres. Il servira à vous connecter à l&apos;application.
+                Le mot de passe doit comporter au moins 4 caractères. Il servira à vous connecter à l&apos;application.
               </Text>
 
               <TouchableOpacity

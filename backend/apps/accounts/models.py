@@ -12,13 +12,14 @@ from apps.common.utils import normalize_phone_number
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
-    def create_user(self, phone_number, password=None, **extra_fields):
-        if not phone_number:
-            raise ValueError("The phone number must be provided.")
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("The email must be provided.")
 
-        phone_number = normalize_phone_number(phone_number)
-        extra_fields.setdefault("phone_number", phone_number)
-        extra_fields.setdefault("username", phone_number)
+        email = self.normalize_email(email)
+        extra_fields.setdefault("email", email)
+        if "username" not in extra_fields:
+            extra_fields["username"] = email
         extra_fields.setdefault("country", CEMACCountry.CM)
         extra_fields.setdefault("role", UserRole.MEMBER)
         extra_fields.setdefault("kyc_status", KYCStatus.PENDING)
@@ -28,24 +29,26 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, phone_number, password=None, **extra_fields):
+    def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("role", UserRole.SUPER_ADMIN)
         extra_fields.setdefault("trust_score", 100)
         extra_fields.setdefault("kyc_status", KYCStatus.VERIFIED)
+        extra_fields.setdefault("phone_number", "000000000")
 
         if extra_fields.get("is_staff") is not True:
             raise ValueError("Superuser must have is_staff=True.")
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
 
-        return self.create_user(phone_number, password, **extra_fields)
+        return self.create_user(email, password, **extra_fields)
 
 
 class User(AbstractUser):
     username = models.CharField(max_length=150, unique=True)
     phone_number = models.CharField(max_length=20, unique=True, db_index=True)
+    email = models.EmailField(unique=True, db_index=True)
     country = models.CharField(
         max_length=2,
         choices=CEMACCountry.choices,
@@ -75,18 +78,19 @@ class User(AbstractUser):
 
     objects = UserManager()
 
-    USERNAME_FIELD = "phone_number"
-    REQUIRED_FIELDS: list[str] = []
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["phone_number"]
 
     def save(self, *args, **kwargs):
-        self.phone_number = normalize_phone_number(self.phone_number)
+        if self.phone_number:
+            self.phone_number = normalize_phone_number(self.phone_number)
         if not self.username:
-            self.username = self.phone_number
+            self.username = self.email
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         full_name = self.get_full_name().strip()
-        return full_name or self.phone_number
+        return full_name or self.email
 
 
 class Tontine(models.Model):

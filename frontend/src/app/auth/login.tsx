@@ -23,9 +23,9 @@ import api from '../../services/api';
 export default function LoginScreen() {
   const router = useRouter();
   const { isWeb, contentMaxWidth } = useResponsive();
-  const [phone, setPhone] = useState('');
-  const [pin, setPin] = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -58,13 +58,13 @@ export default function LoginScreen() {
   }, []);
 
   const handleLogin = async () => {
-    if (!phone || !pin) {
-      Alert.alert('Champs requis', 'Veuillez remplir votre numéro de téléphone et votre code PIN.');
+    if (!email || !password) {
+      Alert.alert('Champs requis', 'Veuillez remplir votre adresse e-mail et votre mot de passe.');
       return;
     }
     setLoading(true);
     try {
-      const data = await authService.login(phone, pin);
+      const data = await authService.login(email, password);
       const status = String(data?.status ?? '').toUpperCase();
       const hasUploadedDoc = !!data?.user?.identity_document;
       if (status === 'VERIFIED') {
@@ -118,57 +118,56 @@ export default function LoginScreen() {
               />
               <Text style={styles.title}>Bienvenue sur Nkap</Text>
               <Text style={styles.subtitle}>
-                Gérez vos finances avec simplicité et sécurité.
+                Gerez vos finances avec simplicite et securite.
               </Text>
             </View>
 
             {/* Formulaire */}
             <View style={styles.form}>
-              {/* Téléphone */}
+              {/* Adresse e-mail */}
               <View style={styles.field}>
-                <Text style={styles.label}>Numéro de téléphone</Text>
+                <Text style={styles.label}>Adresse e-mail</Text>
                 <View style={styles.inputRow}>
-                  <Ionicons name="phone-portrait-outline" size={20} color="#9CA3AF" />
+                  <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
                   <TextInput
                     style={styles.input}
-                    placeholder="06 00 00 00 00"
+                    placeholder="exemple@domaine.com"
                     placeholderTextColor="#9CA3AF"
-                    keyboardType="phone-pad"
-                    value={phone}
-                    onChangeText={setPhone}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
                     editable={!loading}
                   />
                 </View>
               </View>
 
-              {/* PIN */}
+              {/* Mot de passe */}
               <View style={styles.field}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.label}>Code PIN</Text>
+                  <Text style={styles.label}>Mot de passe</Text>
                   <TouchableOpacity
                     onPress={() =>
-                      Alert.alert('Mot de passe oublié', 'Redirection en cours...')
+                      Alert.alert('Mot de passe oublie', 'Redirection en cours...')
                     }
                   >
-                    <Text style={styles.forgotLink}>Oublié ?</Text>
+                    <Text style={styles.forgotLink}>Oublie ?</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.inputRow}>
                   <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
                   <TextInput
-                    style={styles.pinInput}
-                    placeholder="••••"
+                    style={styles.input}
+                    placeholder="Votre mot de passe"
                     placeholderTextColor="#9CA3AF"
-                    secureTextEntry={!showPin}
-                    keyboardType="numeric"
-                    maxLength={4}
-                    value={pin}
-                    onChangeText={setPin}
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
                     editable={!loading}
                   />
-                  <TouchableOpacity onPress={() => setShowPin((v) => !v)} hitSlop={8}>
+                  <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
                     <Ionicons
-                      name={showPin ? 'eye-off-outline' : 'eye-outline'}
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                       size={20}
                       color="#9CA3AF"
                     />
