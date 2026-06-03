@@ -16,7 +16,8 @@ class AuthEndpointsTestCase(APITestCase):
         self.user_data = {
             "full_name": "Test User",
             "phone_number": "+237690000000",
-            "pin": "1234"
+            "email": "test@nkap.app",
+            "password": "testpassword"
         }
 
     def test_registration_and_login_flow(self):
@@ -35,14 +36,14 @@ class AuthEndpointsTestCase(APITestCase):
         self.assertEqual(len(response.data["user"]["tontines"]), 3)
         self.assertEqual(response.data["user"]["tontines"][0]["title"], "Voyage 2024")
 
-        # 2. Test Registration Validation (duplicate phone number)
+        # 2. Test Registration Validation (duplicate phone number / email)
         response_dup = self.client.post(self.register_url, self.user_data, format="json")
         self.assertEqual(response_dup.status_code, status.HTTP_400_BAD_REQUEST)
 
         # 3. Test Login
         login_data = {
-            "phone_number": "237690000000",
-            "pin": "1234"
+            "email": "test@nkap.app",
+            "password": "testpassword"
         }
         response_login = self.client.post(self.login_url, login_data, format="json")
         self.assertEqual(response_login.status_code, status.HTTP_200_OK)

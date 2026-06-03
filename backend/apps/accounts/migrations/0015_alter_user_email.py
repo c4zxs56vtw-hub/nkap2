@@ -2,6 +2,14 @@
 
 from django.db import migrations, models
 
+def populate_unique_emails(apps, schema_editor):
+    User = apps.get_model('accounts', 'User')
+    for user in User.objects.all():
+        if not user.email:
+            identifier = user.phone_number or user.username or f"user_{user.id}"
+            clean_id = identifier.replace('+', '').strip()
+            user.email = f"{clean_id}@nkap.app"
+            user.save()
 
 class Migration(migrations.Migration):
 
@@ -10,6 +18,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(populate_unique_emails, reverse_code=migrations.RunPython.noop),
         migrations.AlterField(
             model_name='user',
             name='email',
