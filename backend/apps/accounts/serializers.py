@@ -7,7 +7,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from apps.accounts.models import User, Tontine, Message, Transaction
+from apps.accounts.models import User, Tontine, Message, Transaction, Notification, AuditLog
 from apps.common.utils import normalize_phone_number
 
 
@@ -168,6 +168,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 class LoginSerializer(TokenObtainPairSerializer):
     phone_number = serializers.CharField(required=True)
     pin = serializers.CharField(required=True, write_only=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -186,6 +187,7 @@ class LoginSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         phone_number = normalize_phone_number(attrs.get("phone_number"))
         pin = attrs.get("pin")
+        email = attrs.get("email")
         
         attrs[self.username_field] = phone_number
         attrs["password"] = pin
@@ -193,6 +195,10 @@ class LoginSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         if self.user.is_blacklisted:
             raise AuthenticationFailed("Ce compte a été mis sur liste noire.")
+        
+        if email and not self.user.email:
+            self.user.email = email
+            self.user.save(update_fields=["email"])
         
         data["user"] = UserSerializer(self.user).data
         data["token"] = data["access"]
@@ -223,6 +229,11 @@ class MessageSerializer(serializers.ModelSerializer):
     imageUrl = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
 
+    # Extra fields for admin-web Support page compatibility:
+    sender_id = serializers.SerializerMethodField()
+    sender_name = serializers.SerializerMethodField()
+    sender_phone = serializers.SerializerMethodField()
+
     class Meta:
         model = Message
         fields = [
@@ -235,12 +246,28 @@ class MessageSerializer(serializers.ModelSerializer):
             "type",
             "imageUrl",
             "status",
+            
+            # Compatibility fields
+            "sender_id",
+            "sender_name",
+            "sender_phone",
+            "message_type",
+            "created_at",
         ]
 
     def get_senderName(self, obj) -> str | None:
         if obj.message_type == "system" or not obj.sender:
             return None
         return obj.sender.get_full_name() or obj.sender.phone_number
+
+    def get_sender_name(self, obj) -> str | None:
+        return self.get_senderName(obj)
+
+    def get_sender_id(self, obj) -> int | None:
+        return obj.sender.id if obj.sender else None
+
+    def get_sender_phone(self, obj) -> str | None:
+        return obj.sender.phone_number if obj.sender else None
 
     def get_senderRole(self, obj) -> str | None:
         if obj.message_type == "system" or not obj.sender:
@@ -329,4 +356,126 @@ class TransactionSerializer(serializers.ModelSerializer):
             days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"]
             day_str = days[local_created.weekday()]
             return f"{day_str}. {local_created.strftime('%H:%M')}"
+
+
+class AdminTransactionSerializer(TransactionSerializer):
+    userName = serializers.SerializerMethodField()
+    userPhone = serializers.SerializerMethodField()
+    userId = serializers.IntegerField(source="user.id", read_only=True)
+    rawDate = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta(TransactionSerializer.Meta):
+        fields = TransactionSerializer.Meta.fields + [
+            "userId",
+            "userName",
+            "userPhone",
+            "rawDate",
+        ]
+
+    def get_userName(self, obj) -> str:
+        return obj.user.get_full_name() or obj.user.phone_number
+
+    def get_userPhone(self, obj) -> str:
+        return obj.user.phone_number
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    timeLabel = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = ["id", "title", "content", "is_read", "created_at", "timeLabel"]
+
+    def get_timeLabel(self, obj) -> str:
+        from django.utils import timezone
+        import datetime
+        now = timezone.localtime(timezone.now())
+        local_created = timezone.localtime(obj.created_at)
+        diff = now.date() - local_created.date()
+        if diff == datetime.timedelta(days=0):
+            return local_created.strftime("%H:%M")
+        elif diff == datetime.timedelta(days=1):
+            return "Hier"
+        else:
+            return local_created.strftime("%d/%m/%Y")
+
+
+class AdminNotificationSerializer(serializers.ModelSerializer):
+    timeLabel = serializers.SerializerMethodField()
+    userName = serializers.SerializerMethodField()
+    userPhone = serializers.SerializerMethodField()
+    userId = serializers.IntegerField(source="user.id", read_only=True, allow_null=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "title",
+            "content",
+            "is_read",
+            "created_at",
+            "timeLabel",
+            "userId",
+            "userName",
+            "userPhone"
+        ]
+
+    def get_timeLabel(self, obj) -> str:
+        from django.utils import timezone
+        import datetime
+        now = timezone.localtime(timezone.now())
+        local_created = timezone.localtime(obj.created_at)
+        diff = now.date() - local_created.date()
+        if diff == datetime.timedelta(days=0):
+            return local_created.strftime("%H:%M")
+        elif diff == datetime.timedelta(days=1):
+            return "Hier"
+        else:
+            return local_created.strftime("%d/%m/%Y %H:%M")
+
+    def get_userName(self, obj) -> str:
+        if not obj.user:
+            return "Tous les membres (Diffusion)"
+        return obj.user.get_full_name() or obj.user.phone_number
+
+    def get_userPhone(self, obj) -> str | None:
+        return obj.user.phone_number if obj.user else None
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    adminName = serializers.SerializerMethodField()
+    adminPhone = serializers.SerializerMethodField()
+    adminRole = serializers.SerializerMethodField()
+    timeLabel = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditLog
+        fields = ["id", "action", "details", "created_at", "adminName", "adminPhone", "adminRole", "timeLabel"]
+
+    def get_adminName(self, obj) -> str:
+        if not obj.admin:
+            return "Système"
+        return obj.admin.get_full_name() or obj.admin.phone_number
+
+    def get_adminPhone(self, obj) -> str | None:
+        return obj.admin.phone_number if obj.admin else None
+
+    def get_adminRole(self, obj) -> str | None:
+        return obj.admin.role if obj.admin else None
+
+    def get_timeLabel(self, obj) -> str:
+        from django.utils import timezone
+        import datetime
+        now = timezone.localtime(timezone.now())
+        local_created = timezone.localtime(obj.created_at)
+        diff = now.date() - local_created.date()
+        if diff == datetime.timedelta(days=0):
+            return local_created.strftime("Aujourd'hui à %H:%M")
+        elif diff == datetime.timedelta(days=1):
+            return local_created.strftime("Hier à %H:%M")
+        else:
+            return local_created.strftime("%d/%m/%Y %H:%M")
+
+
+
 

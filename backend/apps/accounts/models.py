@@ -167,3 +167,50 @@ class Transaction(models.Model):
         return f"{self.user.username} - {self.label}: {self.amount}"
 
 
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications", null=True, blank=True)
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        dest = self.user.username if self.user else "TOUS"
+        return f"Notification to {dest}: {self.title}"
+
+
+class AuditLog(models.Model):
+    admin = models.ForeignKey(User, on_delete=models.SET_NULL, related_name="audit_logs", null=True, blank=True)
+    action = models.CharField(max_length=255)
+    details = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        admin_name = self.admin.get_full_name() or self.admin.phone_number if self.admin else "Système"
+        return f"{admin_name} - {self.action}: {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+
+class PlatformSetting(models.Model):
+    transaction_fee_percent = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)
+    tontine_fee_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    min_transaction_amount = models.DecimalField(max_digits=12, decimal_places=2, default=100.00)
+    max_transaction_amount = models.DecimalField(max_digits=12, decimal_places=2, default=1000000.00)
+    is_maintenance_mode = models.BooleanField(default=False)
+    maintenance_message = models.TextField(default="L'application est temporairement en maintenance. Veuillez nous excuser pour le désagrément.")
+
+    class Meta:
+        verbose_name = "Paramètre de la plateforme"
+        verbose_name_plural = "Paramètres de la plateforme"
+
+    def __str__(self) -> str:
+        return "Configuration générale de Nkap"
+
+
+
+

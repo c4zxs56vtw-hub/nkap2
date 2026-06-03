@@ -16,6 +16,7 @@ import * as SecureStore from 'expo-secure-store';
 import { ADMIN_MODE_KEY } from './profile';
 import { useResponsive } from '../hooks/use-responsive';
 import { safeGoBack } from '../utils/safeNavigation';
+import api from '../services/api';
 
 // Mock list of users in the system
 interface UserItem {

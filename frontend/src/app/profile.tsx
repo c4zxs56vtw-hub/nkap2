@@ -31,7 +31,7 @@ export default function ProfileScreen() {
   const [linkedBankName, setLinkedBankName] = useState('');
   const [userStatus, setUserStatus] = useState('');
   const [role, setRole] = useState('MEMBER');
-  const isAdminMode = role !== 'MEMBER';
+  const [isAdminMode, setIsAdminMode] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -51,6 +51,7 @@ export default function ProfileScreen() {
       setLinkedBankName(bankName ?? '');
       setUserStatus(status ?? '');
       setRole(storedRole ?? 'MEMBER');
+      setIsAdminMode(storedRole ? storedRole !== 'MEMBER' : false);
     } catch {
       // silently fail
     }
@@ -64,6 +65,7 @@ export default function ProfileScreen() {
         if (response.data.phone_number) setPhoneNumber(response.data.phone_number);
         if (response.data.role) {
           setRole(response.data.role);
+          setIsAdminMode(response.data.role !== 'MEMBER');
           await SecureStore.setItemAsync('user_role', response.data.role);
         }
         if (response.data.kyc_status) {
@@ -222,7 +224,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               style={styles.notificationButton}
               activeOpacity={0.85}
-              onPress={() => Alert.alert('Notifications', 'Aucune notification pour le moment.')}
+              onPress={() => router.push('/notifications' as any)}
             >
               <Ionicons name="notifications-outline" size={20} color="#EC4899" />
             </TouchableOpacity>

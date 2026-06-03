@@ -1,7 +1,20 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
-from apps.accounts.views import LogoutAPIView, MeAPIView, NKAPTokenObtainPairView, RegisterAPIView, SubmitKYCAPIView, TontineMessagesAPIView, TontineMessagesSimulateAPIView, TransactionListAPIView, UploadAvatarAPIView
+from apps.accounts.views import (
+    LogoutAPIView, 
+    MeAPIView, 
+    NKAPTokenObtainPairView, 
+    RegisterAPIView, 
+    SubmitKYCAPIView, 
+    TontineMessagesAPIView, 
+    TontineMessagesSimulateAPIView, 
+    TransactionListAPIView, 
+    UploadAvatarAPIView,
+    UserSupportMessagesAPIView,
+    UserNotificationListAPIView,
+    UserNotificationReadAPIView
+)
 
 
 urlpatterns = [
@@ -17,4 +30,7 @@ urlpatterns = [
     path("tontines/<int:tontine_id>/messages/simulate/", TontineMessagesSimulateAPIView.as_view(), name="tontine-messages-simulate"),
     path("transactions/", TransactionListAPIView.as_view(), name="transactions"),
     path("avatar/", UploadAvatarAPIView.as_view(), name="upload-avatar"),
+    path("support/", UserSupportMessagesAPIView.as_view(), name="user-support"),
+    path("notifications/", UserNotificationListAPIView.as_view(), name="user-notifications"),
+    path("notifications/<int:pk>/read/", UserNotificationReadAPIView.as_view(), name="user-notification-read"),
 ]

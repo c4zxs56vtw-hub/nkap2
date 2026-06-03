@@ -17,6 +17,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useResponsive } from '../hooks/use-responsive';
 import { safeGoBack } from '../utils/safeNavigation';
+import api from '../services/api';
 
 interface Message {
   id: string;
@@ -35,10 +36,40 @@ export default function AdminChatScreen() {
   const [inputText, setInputText] = useState('');
   const [userStatus, setUserStatus] = useState('EN ATTENTE');
   const [isTyping, setIsTyping] = useState(false);
+  const [sendLoading, setSendLoading] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Load user profile status
+  const fetchMessages = async () => {
+    try {
+      const response = await api.get('/auth/support/');
+      const backendMsgs = response.data.messages || [];
+      const mapped = backendMsgs.map((msg: any) => ({
+        id: String(msg.id),
+        content: msg.content,
+        timestamp: msg.timestamp,
+        isMe: msg.isMe,
+        type: msg.type === 'system' ? 'system' : 'text'
+      }));
+      
+      if (mapped.length === 0) {
+        setMessages([
+          {
+            id: '1',
+            content: 'Bonjour ! Comment pouvons-nous vous aider aujourd’hui ? Que ce soit pour une tontine, votre statut KYC ou un problème de versement, nous sommes là pour vous guider.',
+            timestamp: '10:00',
+            isMe: false,
+            type: 'text',
+          },
+        ]);
+      } else {
+        setMessages(mapped);
+      }
+    } catch (err) {
+      console.error('Erreur support messages:', err);
+    }
+  };
+
   useEffect(() => {
     const loadStatus = async () => {
       try {
@@ -52,16 +83,10 @@ export default function AdminChatScreen() {
     };
     loadStatus();
 
-    // Initial messages
-    setMessages([
-      {
-        id: '1',
-        content: 'Bonjour ! Comment pouvons-nous vous aider aujourd’hui ? Que ce soit pour une tontine, votre statut KYC ou un problème de versement, nous sommes là pour vous guider.',
-        timestamp: '10:00',
-        isMe: false,
-        type: 'text',
-      },
-    ]);
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 3000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const scrollToBottom = () => {
@@ -74,88 +99,24 @@ export default function AdminChatScreen() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSend = () => {
-    if (!inputText.trim()) return;
+  const handleSend = async () => {
+    if (!inputText.trim() || sendLoading) return;
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      content: inputText,
-      timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      isMe: true,
-      type: 'text',
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+    const content = inputText;
     setInputText('');
+    setSendLoading(true);
 
-    // Simulate Admin Support answer
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      simulateSupportReply(inputText);
-    }, 1800);
-  };
-
-  const simulateSupportReply = async (text: string) => {
-    const textLower = text.toLowerCase();
-    let reply = '';
-    let shouldValidateKYC = false;
-
-    if (textLower.includes('kyc') || textLower.includes('vérif') || textLower.includes('statut') || textLower.includes('document')) {
-      if (userStatus === 'VÉRIFIÉ') {
-        reply = 'Félicitations ! Votre compte est déjà entièrement vérifié (Statut : VÉRIFIÉ). Vous pouvez profiter de toutes les fonctionnalités de tontines sans limites ! 🛡️';
-      } else {
-        reply = 'J’ai bien pris note pour votre dossier de vérification KYC. Je vois que vos documents sont en cours d’examen. Souhaitez-vous que je valide immédiatement votre profil pour tester ? Répondez par "OUI VALIDER" pour forcer le statut VÉRIFIÉ ! 🔒';
-      }
-    } else if (textLower.includes('oui valider') || textLower.includes('oui') || textLower.includes('valider')) {
-      if (userStatus !== 'VÉRIFIÉ') {
-        shouldValidateKYC = true;
-        reply = 'Absolument ! Je viens de forcer la validation de vos documents sur le portail administrateur. Votre statut de profil est maintenant passé à "VÉRIFIÉ". Vous pouvez retourner à votre profil pour le constater ! 🎉';
-      } else {
-        reply = 'Votre compte est déjà vérifié ! Merci de faire confiance à Nkap.';
-      }
-    } else if (textLower.includes('tontine') || textLower.includes('créer') || textLower.includes('rejoindre')) {
-      reply = 'Pour créer une tontine, vous pouvez aller sur l’onglet Dashboard et cliquer sur "Créer une tontine". Pour en rejoindre une existante, cliquez sur "Rejoindre" pour explorer les tontines publiques disponibles.';
-    } else {
-      reply = 'Merci pour vos précisions. Un conseiller de l’équipe d’assistance Nkap prend en charge votre ticket d’assistance. Nous vous répondrons d’ici quelques instants. En attendant, dites-moi si vous avez d’autres questions !';
-    }
-
-    if (shouldValidateKYC) {
-      try {
-        await SecureStore.setItemAsync('user_status', 'VÉRIFIÉ');
-        setUserStatus('VÉRIFIÉ');
-      } catch {
-        // silently ignore SecureStore write failure in mock environment
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `reply-${Date.now()}`,
-          content: reply,
-          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-          isMe: false,
-          type: 'text',
-        },
-        {
-          id: `sys-${Date.now()}`,
-          content: 'Félicitations ! Votre profil a été validé avec succès par l’administrateur.',
-          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-          isMe: false,
-          type: 'system',
-        },
-      ]);
-    } else {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `reply-${Date.now()}`,
-          content: reply,
-          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-          isMe: false,
-          type: 'text',
-        },
-      ]);
+    try {
+      await api.post('/auth/support/', {
+        content: content
+      });
+      await fetchMessages();
+    } catch (err) {
+      console.error(err);
+      setInputText(content);
+      Alert.alert('Erreur', 'Impossible d\'envoyer le message.');
+    } finally {
+      setSendLoading(false);
     }
   };
 

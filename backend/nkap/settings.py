@@ -32,9 +32,11 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "apps.accounts",
+    "drf_spectacular",
 ]
 
 MIDDLEWARE = [
+    "nkap.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -124,6 +126,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 SIMPLE_JWT = {
@@ -134,3 +137,10 @@ SIMPLE_JWT = {
 }
 
 MOMO_WEBHOOK_SECRET = env("MOMO_WEBHOOK_SECRET", "")
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Nkap API Documentation',
+    'DESCRIPTION': 'Documentation interactive et bac à sable de test pour les APIs Nkap (Mobiles & Administrateurs)',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
@@ -26,38 +26,47 @@ export default function DashboardScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  const checkKycAndBalance = useCallback(async () => {
+    try {
+      const response = await api.get('/auth/me/');
+      if (response.data) {
+        const status = response.data.kyc_status;
+        setIsVerified(status ? status.toUpperCase() === 'VERIFIED' : false);
+        await SecureStore.setItemAsync('user_status', status);
+
+        const rawBalance = response.data.balance;
+        if (rawBalance !== undefined) {
+          const formatted = parseFloat(rawBalance).toLocaleString('fr-FR');
+          setBalance(formatted);
+        }
+
+        const rawTontines = response.data.tontines;
+        if (Array.isArray(rawTontines)) {
+          setTontines(rawTontines);
+        }
+
+        if (response.data.full_name) setUserName(response.data.full_name);
+        if (response.data.phone_number) setPhoneNumber(response.data.phone_number);
+        if (response.data.qrImageUrl) setQrImageUrl(response.data.qrImageUrl);
+        if (response.data.avatarUrl) setAvatarUrl(response.data.avatarUrl);
+      }
+    } catch {
+      const status = await SecureStore.getItemAsync('user_status');
+      setIsVerified(status ? status.toUpperCase() === 'VERIFIED' : false);
+    }
+  }, []);
 
   useEffect(() => {
-    const checkKycAndBalance = async () => {
-      try {
-        const response = await api.get('/auth/me/');
-        if (response.data) {
-          const status = response.data.kyc_status;
-          setIsVerified(status ? status.toUpperCase() === 'VERIFIED' : false);
-          await SecureStore.setItemAsync('user_status', status);
-
-          const rawBalance = response.data.balance;
-          if (rawBalance !== undefined) {
-            const formatted = parseFloat(rawBalance).toLocaleString('fr-FR');
-            setBalance(formatted);
-          }
-
-          const rawTontines = response.data.tontines;
-          if (Array.isArray(rawTontines)) {
-            setTontines(rawTontines);
-          }
-
-          if (response.data.full_name) setUserName(response.data.full_name);
-          if (response.data.phone_number) setPhoneNumber(response.data.phone_number);
-          if (response.data.qrImageUrl) setQrImageUrl(response.data.qrImageUrl);
-        }
-      } catch {
-        const status = await SecureStore.getItemAsync('user_status');
-        setIsVerified(status ? status.toUpperCase() === 'VERIFIED' : false);
-      }
-    };
     checkKycAndBalance();
-  }, []);
+  }, [checkKycAndBalance]);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkKycAndBalance();
+    }, [checkKycAndBalance])
+  );
 
   const shareQrLink = async () => {
     try {
@@ -95,7 +104,11 @@ export default function DashboardScreen() {
               </View>
               <Text style={styles.brand}>Nkap</Text>
             </View>
-            <TouchableOpacity style={styles.notificationButton} activeOpacity={0.85}>
+            <TouchableOpacity 
+              style={styles.notificationButton} 
+              activeOpacity={0.85}
+              onPress={() => router.push('/notifications' as any)}
+            >
               <Ionicons name="notifications-outline" size={20} color="#EC4899" />
             </TouchableOpacity>
           </View>

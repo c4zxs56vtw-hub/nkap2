@@ -140,7 +140,7 @@ export default function KycStepThreeScreen() {
             <Text style={styles.brand}>Nkap</Text>
           </View>
           <TouchableOpacity
-            onPress={() => Alert.alert('Notifications', 'Aucune notification pour le moment.')}
+            onPress={() => router.push('/notifications' as any)}
             activeOpacity={0.8}
           >
             <Ionicons name="notifications-outline" size={22} color="#00687a" />

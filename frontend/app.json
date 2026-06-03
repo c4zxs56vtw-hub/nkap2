@@ -41,7 +41,8 @@
         {
           "cameraPermission": "Nkap utilise la caméra pour scanner les QR codes d'invitation aux tontines."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
