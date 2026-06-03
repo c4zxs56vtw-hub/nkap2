@@ -1,6 +1,6 @@
 // services/authService.ts
 import api from './api';
-import * as SecureStore from 'expo-secure-store';
+import { secureStore as SecureStore } from '../utils/secureStore';
 
 const formatError = (error: any, defaultMsg: string): string => {
   if (error.response?.data) {

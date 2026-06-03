@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { secureStore as SecureStore } from '../utils/secureStore';
 
 export type TontineRole = 'TRÉSORIER' | 'MEMBRE' | 'ADMIN';
 

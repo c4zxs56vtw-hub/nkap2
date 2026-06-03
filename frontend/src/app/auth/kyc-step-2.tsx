@@ -16,7 +16,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
+import { secureStore as SecureStore } from '../../utils/secureStore';
 import { useResponsive } from '../../hooks/use-responsive';
 import { authService } from '../../services/authService';
 

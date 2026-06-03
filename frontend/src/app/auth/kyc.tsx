@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
+import { secureStore as SecureStore } from '../../utils/secureStore';
 import { useResponsive } from '../../hooks/use-responsive';
 
 export default function KycScreen() {

@@ -3,7 +3,7 @@ import { Alert, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, To
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
+import { secureStore as SecureStore } from '../utils/secureStore';
 import { useResponsive } from '../hooks/use-responsive';
 import { MY_TONTINES } from '../services/tontineChatService';
 import api from '../services/api';

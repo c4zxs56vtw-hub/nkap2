@@ -1,6 +1,6 @@
 // services/api.ts
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { secureStore as SecureStore } from '../utils/secureStore';
 
 import Constants from 'expo-constants';
 

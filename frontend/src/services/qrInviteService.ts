@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import { secureStore as SecureStore } from '../utils/secureStore';
 import { getTontineById, MY_TONTINES, type MyTontine } from './tontineChatService';
 
 const DYNAMIC_INVITES_KEY = 'nkap_dynamic_invites';
