@@ -117,7 +117,6 @@ export default function RootLayout() {
           <Stack.Screen name="tontine-messages" />
           <Stack.Screen name="tontine-chat" />
           <Stack.Screen name="admin-chat" />
-          <Stack.Screen name="admin-dashboard" />
         </Stack>
       </ThemeProvider>
     </SafeAreaProvider>

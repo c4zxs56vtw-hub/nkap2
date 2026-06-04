@@ -566,32 +566,7 @@ function ProfileContent({
           </View>
           <MaterialCommunityIcons name="chevron-right" size={22} color="#6d797d" />
         </TouchableOpacity>
-        <View style={styles.actionDivider} />
-        {isAdminMode && (
-          <>
-            <TouchableOpacity
-              style={styles.actionRow}
-              activeOpacity={0.8}
-              onPress={async () => {
-                try {
-                  await SecureStore.setItemAsync(ADMIN_MODE_KEY, 'true');
-                  router.push('/admin-dashboard' as never);
-                } catch {
-                  Alert.alert('Erreur', 'Impossible d’activer le mode administrateur.');
-                }
-              }}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: '#fce7f3' }]}>
-                <MaterialCommunityIcons name="shield-crown-outline" size={20} color="#db2777" />
-              </View>
-              <View style={styles.actionTextBlock}>
-                <Text style={styles.actionTitle}>Portail Administration Nkap</Text>
-                <Text style={styles.actionSubtitle}>Gérer les utilisateurs, KYC et annonces</Text>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={22} color="#6d797d" />
-            </TouchableOpacity>
-          </>
-        )}
+
       </View>
     </>
   );

@@ -502,23 +502,31 @@ class AdminUserLockAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+def get_or_create_support_tontine(user):
+    tontine = Tontine.objects.filter(title__startswith="Support -", members=user).first()
+    if not tontine:
+        tontine = Tontine.objects.create(
+            title=f"Support - {user.get_full_name() or user.phone_number}",
+            subtitle="Assistance en direct",
+            pool_amount=0,
+            active_members=2,
+            progress=0,
+            icon="chat",
+        )
+        tontine.members.add(user)
+        admins = User.objects.exclude(role="MEMBER")
+        if admins.exists():
+            tontine.members.add(*admins)
+    return tontine
+
 class AdminSupportMessagesAPIView(APIView):
     permission_classes = [IsNkapAdmin]
 
     def get(self, request, user_id):
         user = get_object_or_404(User, id=user_id)
-        tontine, _ = Tontine.objects.get_or_create(
-            title=f"Support - {user.get_full_name() or user.phone_number}",
-            defaults={
-                "subtitle": "Assistance en direct",
-                "pool_amount": 0,
-                "active_members": 2,
-                "progress": 0,
-                "icon": "chat",
-            }
-        )
-        tontine.members.add(user)
-        tontine.members.add(request.user)
+        tontine = get_or_create_support_tontine(user)
+        if request.user not in tontine.members.all():
+            tontine.members.add(request.user)
 
         messages = tontine.messages.all().order_by("created_at")
         serializer = MessageSerializer(messages, many=True, context={"request": request})
@@ -533,18 +541,9 @@ class AdminSupportMessagesAPIView(APIView):
         if not content:
             return Response({"error": "Le contenu du message ne peut pas être vide."}, status=status.HTTP_400_BAD_REQUEST)
 
-        tontine, _ = Tontine.objects.get_or_create(
-            title=f"Support - {user.get_full_name() or user.phone_number}",
-            defaults={
-                "subtitle": "Assistance en direct",
-                "pool_amount": 0,
-                "active_members": 2,
-                "progress": 0,
-                "icon": "chat",
-            }
-        )
-        tontine.members.add(user)
-        tontine.members.add(request.user)
+        tontine = get_or_create_support_tontine(user)
+        if request.user not in tontine.members.all():
+            tontine.members.add(request.user)
 
         message = Message.objects.create(
             tontine=tontine,
@@ -811,22 +810,7 @@ class UserSupportMessagesAPIView(APIView):
 
     def get(self, request):
         user = request.user
-        
-        tontine, _ = Tontine.objects.get_or_create(
-            title=f"Support - {user.get_full_name() or user.phone_number}",
-            defaults={
-                "subtitle": "Assistance en direct",
-                "pool_amount": 0,
-                "active_members": 2,
-                "progress": 0,
-                "icon": "chat",
-            }
-        )
-        tontine.members.add(user)
-        
-        admins = User.objects.exclude(role="MEMBER")
-        if admins.exists():
-            tontine.members.add(*admins)
+        tontine = get_or_create_support_tontine(user)
 
         messages = tontine.messages.all().order_by("created_at")
         serializer = MessageSerializer(messages, many=True, context={"request": request})
@@ -841,21 +825,7 @@ class UserSupportMessagesAPIView(APIView):
         if not content:
             return Response({"error": "Le contenu du message ne peut pas être vide."}, status=status.HTTP_400_BAD_REQUEST)
 
-        tontine, _ = Tontine.objects.get_or_create(
-            title=f"Support - {user.get_full_name() or user.phone_number}",
-            defaults={
-                "subtitle": "Assistance en direct",
-                "pool_amount": 0,
-                "active_members": 2,
-                "progress": 0,
-                "icon": "chat",
-            }
-        )
-        tontine.members.add(user)
-        
-        admins = User.objects.exclude(role="MEMBER")
-        if admins.exists():
-            tontine.members.add(*admins)
+        tontine = get_or_create_support_tontine(user)
 
         message = Message.objects.create(
             tontine=tontine,
