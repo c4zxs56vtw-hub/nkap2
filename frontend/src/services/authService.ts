@@ -1,4 +1,5 @@
 // services/authService.ts
+import { Platform } from 'react-native';
 import api from './api';
 import { secureStore as SecureStore } from '../utils/secureStore';
 
@@ -85,11 +86,20 @@ export const authService = {
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      formData.append('identity_document', {
-        uri: identityDocumentUri,
-        name: filename,
-        type,
-      } as any);
+      if (Platform.OS === 'web') {
+        // Sur le web, nous devons convertir l'URI locale (blob: ou base64) en Blob binaire réel
+        const response = await fetch(identityDocumentUri);
+        const blob = await response.blob();
+        formData.append('identity_document', blob, filename);
+      } else {
+        // Sur mobile, la structure uri / name / type fonctionne de base avec react-native
+        formData.append('identity_document', {
+          uri: identityDocumentUri,
+          name: filename,
+          type,
+        } as any);
+      }
+      
       formData.append('full_name', fullName);
       formData.append('mobile_money_number', mobileMoneyNumber);
 
