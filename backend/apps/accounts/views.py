@@ -345,6 +345,8 @@ class AdminUserListAPIView(APIView):
             kyc_status = 'NON DÉPOSÉ'
             if user.kyc_status == 'VERIFIED':
                 kyc_status = 'VÉRIFIÉ'
+            elif user.kyc_status == 'REJECTED':
+                kyc_status = 'REFUSÉ'
             elif user.kyc_status in ['PENDING', 'SUBMITTED', 'UNDER_REVIEW']:
                 kyc_status = 'EN ATTENTE'
                 

@@ -179,10 +179,13 @@ export default function Kyc() {
                           ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
                           : user.kycStatus === 'EN ATTENTE'
                           ? 'bg-amber-500/10 text-amber-600 border-amber-500/20 animate-pulse'
+                          : user.kycStatus === 'REFUSÉ'
+                          ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                           : 'bg-slate-100 text-slate-500 border-slate-200'
                       }`}>
                         {user.kycStatus === 'VÉRIFIÉ' && <ShieldCheck className="w-3.5 h-3.5" />}
                         {user.kycStatus === 'EN ATTENTE' && <Clock className="w-3.5 h-3.5" />}
+                        {user.kycStatus === 'REFUSÉ' && <X className="w-3.5 h-3.5" />}
                         {user.kycStatus}
                       </span>
                     </td>
@@ -280,8 +283,13 @@ export default function Kyc() {
               </div>
 
               {/* Action Form */}
-              {selectedUser.kycStatus === 'EN ATTENTE' && (
+              {(selectedUser.kycStatus === 'EN ATTENTE' || selectedUser.kycStatus === 'REFUSÉ') && (
                 <div className="bg-slate-50 border border-slate-200/60 rounded-3xl p-6 space-y-4">
+                  {selectedUser.kycStatus === 'REFUSÉ' && (
+                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 text-rose-800 text-xs mb-2">
+                      <strong>Dossier précédemment rejeté :</strong> {selectedUser.kycRejectionReason || "Aucun motif spécifié."}
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 block">Motif de rejet (obligatoire en cas de refus)</label>
                     <textarea

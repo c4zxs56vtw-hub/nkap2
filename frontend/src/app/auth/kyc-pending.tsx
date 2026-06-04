@@ -14,13 +14,13 @@ export default function KycPendingScreen() {
   const checkKycStatus = async () => {
     try {
       const response = await api.get('/auth/me/');
-      if (response.data) {
         const status = String(response.data.kyc_status ?? '').toUpperCase();
         await SecureStore.setItemAsync('user_status', status);
         if (status === 'VERIFIED') {
           router.replace('/dashboard' as never);
+        } else if (status === 'REJECTED') {
+          router.replace('/auth/kyc' as never);
         }
-      }
     } catch {
       // ignore
     }

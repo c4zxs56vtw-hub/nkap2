@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,12 +16,31 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { secureStore as SecureStore } from '../../utils/secureStore';
 import { useResponsive } from '../../hooks/use-responsive';
+import api from '../../services/api';
 
 export default function KycScreen() {
   const router = useRouter();
   const { isWeb, contentMaxWidth, hPad } = useResponsive();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const response = await api.get('/auth/me/');
+        if (response.data) {
+          const status = String(response.data.kyc_status ?? '').toUpperCase();
+          if (status === 'REJECTED' && response.data.kyc_rejection_reason) {
+            setRejectionReason(response.data.kyc_rejection_reason);
+          }
+        }
+      } catch (err) {
+        console.error('[KycScreen] Impossible de charger le motif de rejet', err);
+      }
+    };
+    loadProfile();
+  }, []);
 
   const pickImage = async () => {
     try {
@@ -128,6 +147,16 @@ export default function KycScreen() {
             Soumettez vos documents officiels pour sécuriser votre compte conformément aux
             réglementations de la zone CEMAC.
           </Text>
+
+          {rejectionReason && (
+            <View style={styles.rejectionBanner}>
+              <Ionicons name="alert-circle" size={20} color="#b91c1c" />
+              <Text style={styles.rejectionText}>
+                <Text style={styles.rejectionTitle}>Dossier rejeté : </Text>
+                {rejectionReason}
+              </Text>
+            </View>
+          )}
 
           <TouchableOpacity
             style={[styles.uploadCard, isWeb && styles.uploadCardWeb]}
@@ -405,6 +434,26 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '800',
+  },
+  rejectionBanner: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+    gap: 10,
+  },
+  rejectionText: {
+    flex: 1,
+    color: '#991b1b',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  rejectionTitle: {
     fontWeight: '800',
   },
 });
