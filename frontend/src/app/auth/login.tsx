@@ -29,32 +29,53 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let active = true;
     const checkAutoLogin = async () => {
       try {
         const token = await SecureStore.getItemAsync('user_token');
-        if (token) {
-          setLoading(true);
-          const response = await api.get('/auth/me/');
-          if (response.data) {
-            const status = String(response.data.kyc_status ?? '').toUpperCase();
-            await SecureStore.setItemAsync('user_status', status);
-            const hasUploadedDoc = !!response.data.identity_document;
-            if (status === 'VERIFIED') {
-              router.replace('/dashboard' as never);
-            } else if (hasUploadedDoc && (status === 'PENDING' || status === 'UNDER_REVIEW' || status === 'SUBMITTED')) {
-              router.replace('/auth/kyc-pending' as never);
-            } else {
-              router.replace('/auth/kyc' as never);
-            }
+        if (!token) {
+          if (active) setLoading(false);
+          return;
+        }
+
+        // Configuration d'un timeout de 2 secondes max pour la vérification automatique
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        const response = await api.get('/auth/me/', { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (active && response.data) {
+          const status = String(response.data.kyc_status ?? '').toUpperCase();
+          await SecureStore.setItemAsync('user_status', status);
+          const hasUploadedDoc = !!response.data.identity_document;
+          if (status === 'VERIFIED') {
+            router.replace('/dashboard' as never);
+          } else if (hasUploadedDoc && (status === 'PENDING' || status === 'UNDER_REVIEW' || status === 'SUBMITTED')) {
+            router.replace('/auth/kyc-pending' as never);
           } else {
-            setLoading(false);
+            router.replace('/auth/kyc' as never);
           }
         }
-      } catch {
-        setLoading(false);
+      } catch (err) {
+        console.log('[AutoLogin] Connexion automatique ignorée ou expirée (timeout)');
+        if (active) setLoading(false);
       }
     };
-    checkAutoLogin();
+
+    // Déterminer s'il faut afficher le chargement initial uniquement si un jeton est présent
+    SecureStore.getItemAsync('user_token').then((token) => {
+      if (token && active) {
+        setLoading(true);
+        checkAutoLogin();
+      } else {
+        if (active) setLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const showAlert = (title: string, message: string) => {
