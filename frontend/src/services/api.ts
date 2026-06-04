@@ -33,13 +33,14 @@ const api = axios.create({
 // Intercepteur pour injecter automatiquement le Token JWT dans les requêtes
 api.interceptors.request.use(
   async (config) => {
-    // Ne pas ajouter le token d'autorisation pour la connexion et l'inscription
-    const isAuthRequest = config.url && (
+    // Ne pas ajouter le token d'autorisation pour la connexion et l'inscription, ou les réglages publics
+    const isPublicRequest = config.url && (
       config.url.includes('/auth/login') || 
-      config.url.includes('/auth/register')
+      config.url.includes('/auth/register') ||
+      config.url.includes('/settings/public')
     );
 
-    if (!isAuthRequest) {
+    if (!isPublicRequest) {
       const token = await SecureStore.getItemAsync('user_token');
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -48,6 +49,23 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Intercepteur pour gérer les réponses et vider le stockage si le jeton est expiré/invalide (401)
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    if (error.response && error.response.status === 401) {
+      // Nettoyer les informations d'authentification expirées/invalides
+      await SecureStore.deleteItemAsync('user_token');
+      await SecureStore.deleteItemAsync('user_status');
+      await SecureStore.deleteItemAsync('user_full_name');
+      await SecureStore.deleteItemAsync('kyc_identity_document_uri');
+    }
     return Promise.reject(error);
   }
 );

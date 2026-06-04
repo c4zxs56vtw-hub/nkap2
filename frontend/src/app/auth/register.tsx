@@ -29,32 +29,49 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const showAlert = (title: string, message: string) => {
+    console.log(`[Alert] ${title}: ${message}`);
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleRegister = async () => {
+    console.log('[Register] Clicked register button');
+    console.log('[Register] Current values:', { fullName, phone, email, passwordLength: password.length, confirmPasswordLength: confirmPassword.length });
+
     if (!fullName.trim() || !phone || !email || !password || !confirmPassword) {
-      Alert.alert('Champs requis', 'Veuillez remplir tous les champs.');
+      showAlert('Champs requis', 'Veuillez remplir tous les champs.');
       return;
     }
     if (fullName.trim().length < 2) {
-      Alert.alert('Nom invalide', 'Veuillez saisir votre nom complet.');
+      showAlert('Nom invalide', 'Veuillez saisir votre nom complet.');
       return;
     }
     if (!email.includes('@')) {
-      Alert.alert('E-mail invalide', 'Veuillez saisir une adresse e-mail valide.');
+      showAlert('E-mail invalide', 'Veuillez saisir une adresse e-mail valide.');
       return;
     }
     if (password.length < 4) {
-      Alert.alert('Mot de passe invalide', 'Le mot de passe doit comporter au moins 4 caractères.');
+      showAlert('Mot de passe invalide', 'Le mot de passe doit comporter au moins 4 caractères.');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Erreur de confirmation', 'Les deux mots de passe ne correspondent pas.');
+      showAlert('Erreur de confirmation', 'Les deux mots de passe ne correspondent pas.');
       return;
     }
     setLoading(true);
     try {
+      console.log('[Register] Sending API request to register...');
       const data = await authService.register(fullName.trim(), phone, email, password);
+      console.log('[Register] API Response received:', data);
+      
       const status = String(data?.status ?? '').toUpperCase();
       const hasUploadedDoc = !!data?.user?.identity_document;
+      
+      console.log('[Register] Redirecting based on status:', { status, hasUploadedDoc });
       if (status === 'VERIFIED') {
         router.replace('/dashboard' as never);
       } else if (hasUploadedDoc && (status === 'PENDING' || status === 'UNDER_REVIEW' || status === 'SUBMITTED')) {
@@ -63,7 +80,8 @@ export default function RegisterScreen() {
         router.replace('/auth/kyc' as never);
       }
     } catch (error: any) {
-      Alert.alert('Échec de création du compte', error.message);
+      console.error('[Register] Error during registration:', error);
+      showAlert('Échec de création du compte', error.message);
     } finally {
       setLoading(false);
     }

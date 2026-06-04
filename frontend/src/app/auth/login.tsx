@@ -57,16 +57,33 @@ export default function LoginScreen() {
     checkAutoLogin();
   }, []);
 
+  const showAlert = (title: string, message: string) => {
+    console.log(`[Alert] ${title}: ${message}`);
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleLogin = async () => {
+    console.log('[Login] Clicked login button');
+    console.log('[Login] Current values:', { email, passwordLength: password.length });
+
     if (!email || !password) {
-      Alert.alert('Champs requis', 'Veuillez remplir votre adresse e-mail et votre mot de passe.');
+      showAlert('Champs requis', 'Veuillez remplir votre adresse e-mail et votre mot de passe.');
       return;
     }
     setLoading(true);
     try {
+      console.log('[Login] Sending API request to login...');
       const data = await authService.login(email, password);
+      console.log('[Login] API Response received:', data);
+
       const status = String(data?.status ?? '').toUpperCase();
       const hasUploadedDoc = !!data?.user?.identity_document;
+      
+      console.log('[Login] Redirecting based on status:', { status, hasUploadedDoc });
       if (status === 'VERIFIED') {
         router.replace('/dashboard' as never);
       } else if (hasUploadedDoc && (status === 'PENDING' || status === 'UNDER_REVIEW' || status === 'SUBMITTED')) {
@@ -75,7 +92,8 @@ export default function LoginScreen() {
         router.replace('/auth/kyc' as never);
       }
     } catch (error: any) {
-      Alert.alert('Échec de connexion', error.message);
+      console.error('[Login] Error during login:', error);
+      showAlert('Échec de connexion', error.message);
     } finally {
       setLoading(false);
     }
@@ -148,7 +166,7 @@ export default function LoginScreen() {
                   <Text style={styles.label}>Mot de passe</Text>
                   <TouchableOpacity
                     onPress={() =>
-                      Alert.alert('Mot de passe oublie', 'Redirection en cours...')
+                      showAlert('Mot de passe oublié', 'Redirection en cours...')
                     }
                   >
                     <Text style={styles.forgotLink}>Oublie ?</Text>
@@ -202,7 +220,7 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={styles.biometrics}
               onPress={() =>
-                Alert.alert('Biométrie', "Analyse de la reconnaissance faciale (Face ID) en cours...")
+                showAlert('Biométrie', "Analyse de la reconnaissance faciale (Face ID) en cours...")
               }
             >
               <MaterialCommunityIcons name="face-recognition" size={34} color="#C4C9D4" />

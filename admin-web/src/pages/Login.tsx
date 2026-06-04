@@ -24,9 +24,8 @@ export default function Login() {
 
     try {
       const response = await api.post('/auth/login/', {
-        phone_number: phoneNumber,
-        pin: pin,
-        email: email,
+        email: email || phoneNumber,
+        password: pin,
       });
 
       const { token, user } = response.data;
@@ -108,18 +107,17 @@ export default function Login() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-slate-700 text-sm font-bold block">Code PIN d'accès</label>
+            <label className="text-slate-700 text-sm font-bold block">Mot de passe / Code PIN</label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
                 <Lock className="w-5 h-5" />
               </span>
               <input
                 type={showPin ? 'text' : 'password'}
-                maxLength={4}
-                placeholder="••••"
+                placeholder="Votre mot de passe ou code PIN"
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-12 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all text-base tracking-widest"
+                onChange={(e) => setPin(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-12 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all text-base"
               />
               <button
                 type="button"
