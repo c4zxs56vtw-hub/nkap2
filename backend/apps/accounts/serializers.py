@@ -75,6 +75,7 @@ class UserSerializer(serializers.ModelSerializer):
             "qrImageUrl",
             "avatar",
             "avatarUrl",
+            "has_late_payment",
         ]
         read_only_fields = [
             "id",
@@ -93,7 +94,13 @@ class UserSerializer(serializers.ModelSerializer):
             "qr_code",
             "qrImageUrl",
             "avatarUrl",
+            "has_late_payment",
         ]
+
+    def get_has_late_payment(self, obj) -> bool:
+        """Simule/Détecte si l'utilisateur a un retard de paiement en fonction du score de confiance."""
+        # Un score inférieur ou égal à 50 simule un retard de paiement (par exemple pour tests)
+        return obj.trust_score > 0 and obj.trust_score <= 50
 
     def get_qrImageUrl(self, obj) -> str:
         """Genère l'URL du QR code encodant le lien de paiement/profil Nkap de l'utilisateur."""

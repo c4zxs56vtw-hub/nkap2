@@ -27,6 +27,7 @@ export default function DashboardScreen() {
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const [showQrModal, setShowQrModal] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showLatePaymentModal, setShowLatePaymentModal] = useState(false);
 
   const checkKycAndBalance = useCallback(async () => {
     try {
@@ -51,6 +52,11 @@ export default function DashboardScreen() {
         if (response.data.phone_number) setPhoneNumber(response.data.phone_number);
         if (response.data.qrImageUrl) setQrImageUrl(response.data.qrImageUrl);
         if (response.data.avatarUrl) setAvatarUrl(response.data.avatarUrl);
+
+        // Alerte si l'utilisateur a un retard de paiement
+        if (response.data.has_late_payment) {
+          setShowLatePaymentModal(true);
+        }
       }
     } catch {
       const status = await SecureStore.getItemAsync('user_status');
@@ -222,6 +228,41 @@ export default function DashboardScreen() {
           </View>
         )}
       </View>
+
+      {/* Modal Retard de Paiement */}
+      <Modal
+        visible={showLatePaymentModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLatePaymentModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowLatePaymentModal(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.lateAlertContainer}>
+              <View style={styles.lateAlertIconBg}>
+                <Ionicons name="warning-outline" size={32} color="#D01C6A" />
+              </View>
+              
+              <Text style={styles.lateAlertTitle}>Retard constaté !</Text>
+              
+              <Text style={styles.lateAlertText}>
+                Une pénalité automatique de 10% a été appliquée. 60% sera versé à Nkap et 40% au bénéficiaire du tour.
+              </Text>
+              
+              <TouchableOpacity 
+                style={styles.lateAlertBtn}
+                onPress={() => {
+                  setShowLatePaymentModal(false);
+                  router.push('/transfers' as any);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.lateAlertBtnText}>Régulariser maintenant</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Modal QR Code */}
       <Modal
@@ -853,4 +894,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalShareText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  lateAlertContainer: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    width: '100%',
+  },
+  lateAlertIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FCE7F3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  lateAlertTitle: {
+    color: '#111827',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  lateAlertText: {
+    color: '#4B5563',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  lateAlertBtn: {
+    width: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  lateAlertBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

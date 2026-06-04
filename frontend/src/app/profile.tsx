@@ -3,10 +3,12 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -37,6 +39,24 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  // Saisies pour modification du profil
+  const [editFullName, setEditFullName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // États sécurité & confiance
+  const [trustScore, setTrustScore] = useState(0);
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
+  const [fraudFlags, setFraudFlags] = useState(0);
+
+  const alertUser = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const loadProfile = useCallback(async () => {
     try {
       const [method, momoPhone, bankName, status, storedRole] = await Promise.all([
@@ -61,7 +81,10 @@ export default function ProfileScreen() {
       const response = await api.get('/auth/me/');
       if (response.data) {
         if (response.data.avatarUrl) setAvatarUrl(response.data.avatarUrl);
-        if (response.data.full_name) setFullName(response.data.full_name);
+        if (response.data.full_name) {
+          setFullName(response.data.full_name);
+          setEditFullName(response.data.full_name);
+        }
         if (response.data.phone_number) setPhoneNumber(response.data.phone_number);
         if (response.data.role) {
           setRole(response.data.role);
@@ -72,6 +95,9 @@ export default function ProfileScreen() {
           setUserStatus(response.data.kyc_status);
           await SecureStore.setItemAsync('user_status', response.data.kyc_status);
         }
+        if (response.data.trust_score !== undefined) setTrustScore(response.data.trust_score);
+        if (response.data.is_blacklisted !== undefined) setIsBlacklisted(response.data.is_blacklisted);
+        if (response.data.fraud_flag_count !== undefined) setFraudFlags(response.data.fraud_flag_count);
       }
     } catch {
       // utiliser les données du SecureStore en fallback
@@ -163,11 +189,18 @@ export default function ProfileScreen() {
     try {
       const formData = new FormData();
       const filename = uri.split('/').pop() ?? 'avatar.jpg';
-      formData.append('avatar', {
-        uri,
-        name: filename,
-        type: mimeType,
-      } as any);
+
+      if (Platform.OS === 'web') {
+        const res = await fetch(uri);
+        const blob = await res.blob();
+        formData.append('avatar', blob, filename);
+      } else {
+        formData.append('avatar', {
+          uri,
+          name: filename,
+          type: mimeType,
+        } as any);
+      }
 
       const response = await api.post('/auth/avatar/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -176,20 +209,62 @@ export default function ProfileScreen() {
       if (response.data?.avatarUrl) {
         setAvatarUrl(response.data.avatarUrl + `?t=${Date.now()}`);
       }
-      Alert.alert('✓ Photo mise à jour', 'Votre photo de profil a été modifiée.');
+      alertUser('✓ Photo mise à jour', 'Votre photo de profil a été modifiée.');
     } catch {
-      Alert.alert('Erreur', 'Impossible de mettre à jour votre photo. Réessayez.');
+      alertUser('Erreur', 'Impossible de mettre à jour votre photo. Réessayez.');
     } finally {
       setUploading(false);
     }
   };
 
   const showAvatarOptions = () => {
-    Alert.alert('Photo de profil', 'Choisissez une option', [
-      { text: 'Prendre une photo', onPress: handleTakePhoto },
-      { text: 'Choisir dans la galerie', onPress: handlePickAvatar },
-      { text: 'Annuler', style: 'cancel' },
-    ]);
+    if (Platform.OS === 'web') {
+      handlePickAvatar();
+    } else {
+      Alert.alert('Photo de profil', 'Choisissez une option', [
+        { text: 'Prendre une photo', onPress: handleTakePhoto },
+        { text: 'Choisir dans la galerie', onPress: handlePickAvatar },
+        { text: 'Annuler', style: 'cancel' },
+      ]);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editFullName.trim()) {
+      alertUser('Erreur', 'Le nom complet ne peut pas être vide.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload: any = {
+        name: editFullName.trim(),
+      };
+
+      if (editPassword.trim()) {
+        if (editPassword.trim().length < 4) {
+          alertUser('Erreur', 'Le mot de passe / PIN doit faire au moins 4 caractères.');
+          setSaving(false);
+          return;
+        }
+        payload.password = editPassword.trim();
+      }
+
+      const response = await api.patch('/auth/me/', payload);
+      if (response.data) {
+        if (response.data.full_name) {
+          setFullName(response.data.full_name);
+          setEditFullName(response.data.full_name);
+        }
+        setEditPassword('');
+        alertUser('✓ Succès', 'Votre profil a été mis à jour avec succès.');
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.error || error.response?.data?.detail || "Impossible de mettre à jour le profil.";
+      alertUser('Erreur', errMsg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const bottomInset = Math.max(insets.bottom, 8);
@@ -288,6 +363,15 @@ export default function ProfileScreen() {
                   onChangeAvatar={showAvatarOptions}
                   fullName={fullName}
                   phoneNumber={phoneNumber}
+                  editFullName={editFullName}
+                  setEditFullName={setEditFullName}
+                  editPassword={editPassword}
+                  setEditPassword={setEditPassword}
+                  saving={saving}
+                  handleSaveProfile={handleSaveProfile}
+                  trustScore={trustScore}
+                  isBlacklisted={isBlacklisted}
+                  fraudFlags={fraudFlags}
                 />
               </View>
             </View>
@@ -307,6 +391,15 @@ export default function ProfileScreen() {
                 onChangeAvatar={showAvatarOptions}
                 fullName={fullName}
                 phoneNumber={phoneNumber}
+                editFullName={editFullName}
+                setEditFullName={setEditFullName}
+                editPassword={editPassword}
+                setEditPassword={setEditPassword}
+                saving={saving}
+                handleSaveProfile={handleSaveProfile}
+                trustScore={trustScore}
+                isBlacklisted={isBlacklisted}
+                fraudFlags={fraudFlags}
               />
             </View>
           )}
@@ -370,6 +463,15 @@ function ProfileContent({
   onChangeAvatar,
   fullName,
   phoneNumber,
+  editFullName,
+  setEditFullName,
+  editPassword,
+  setEditPassword,
+  saving,
+  handleSaveProfile,
+  trustScore,
+  isBlacklisted,
+  fraudFlags,
 }: {
   loading: boolean;
   userStatus: string;
@@ -384,6 +486,15 @@ function ProfileContent({
   onChangeAvatar: () => void;
   fullName: string;
   phoneNumber: string;
+  editFullName: string;
+  setEditFullName: (val: string) => void;
+  editPassword: string;
+  setEditPassword: (val: string) => void;
+  saving: boolean;
+  handleSaveProfile: () => void;
+  trustScore: number;
+  isBlacklisted: boolean;
+  fraudFlags: number;
 }) {
   return (
     <>
@@ -489,6 +600,107 @@ function ProfileContent({
             </View>
           </>
         )}
+      </View>
+
+      {/* Édition du profil */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Modifier mon profil</Text>
+      </View>
+      <View style={styles.formCard}>
+        <Text style={styles.fieldLabel}>Nom complet</Text>
+        <TextInput
+          style={styles.input}
+          value={editFullName}
+          onChangeText={setEditFullName}
+          placeholder="Ex: Jean Dupont"
+          placeholderTextColor="#9ca3af"
+        />
+
+        <Text style={styles.fieldLabel}>Nouveau PIN / Mot de passe</Text>
+        <TextInput
+          style={styles.input}
+          value={editPassword}
+          onChangeText={setEditPassword}
+          placeholder="Entrez un nouveau code"
+          secureTextEntry
+          placeholderTextColor="#9ca3af"
+        />
+
+        <TouchableOpacity 
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]} 
+          onPress={handleSaveProfile}
+          disabled={saving}
+          activeOpacity={0.8}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="content-save-outline" size={18} color="#ffffff" />
+              <Text style={styles.saveButtonText}>Enregistrer les modifications</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Sécurité & Confiance */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Sécurité & Confiance</Text>
+      </View>
+      <View style={styles.securityCard}>
+        {/* Score de confiance */}
+        <View style={styles.scoreHeader}>
+          <MaterialCommunityIcons name="shield-check" size={24} color="#006c49" />
+          <View style={styles.scoreTextWrap}>
+            <Text style={styles.securityLabel}>Score de confiance</Text>
+            <Text style={styles.securityDesc}>
+              {trustScore > 80 
+                ? "Excellent score · Profil de confiance" 
+                : trustScore > 50 
+                ? "Score modéré · Tontines accessibles" 
+                : "Score faible · Restriction possible"}
+            </Text>
+          </View>
+          <Text style={[styles.scoreValue, { color: trustScore > 80 ? '#006c49' : trustScore > 50 ? '#f59e0b' : '#ef4444' }]}>
+            {trustScore}/100
+          </Text>
+        </View>
+
+        {/* Barre de progression du score */}
+        <View style={styles.scoreBarBg}>
+          <View 
+            style={[
+              styles.scoreBarFill, 
+              { 
+                width: `${Math.min(100, Math.max(0, trustScore))}%`,
+                backgroundColor: trustScore > 80 ? '#006c49' : trustScore > 50 ? '#f59e0b' : '#ef4444' 
+              }
+            ]} 
+          />
+        </View>
+
+        <View style={styles.securityDivider} />
+
+        {/* Détails du statut de sécurité */}
+        <View style={styles.securityStatusRow}>
+          <View style={styles.statusDetail}>
+            <Text style={styles.statusLabel}>Statut du compte</Text>
+            <View style={[styles.statusBadge, { backgroundColor: isBlacklisted ? '#fef2f2' : userStatus === 'VALIDÉ' ? '#ecfdf5' : '#fffbeb' }]}>
+              <Text style={[styles.statusBadgeText, { color: isBlacklisted ? '#ef4444' : userStatus === 'VALIDÉ' ? '#006c49' : '#b45309' }]}>
+                {isBlacklisted ? 'Blacklisté / Restreint' : userStatus === 'VALIDÉ' ? 'Vérifié & Sécurisé' : 'KYC Requis / Limité'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.statusDetail}>
+            <Text style={styles.statusLabel}>Alertes de sécurité</Text>
+            <View style={[styles.statusBadge, { backgroundColor: fraudFlags > 0 ? '#fef2f2' : '#f0fdf4' }]}>
+              <Text style={[styles.statusBadgeText, { color: fraudFlags > 0 ? '#ef4444' : '#15803d' }]}>
+                {fraudFlags > 0 ? `${fraudFlags} signalement(s)` : 'Aucune alerte'}
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
 
       {/* Actions rapides */}
@@ -810,6 +1022,122 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   logoutText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  formCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dee3e6',
+    padding: 16,
+    marginBottom: 24,
+    gap: 12,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#00424f',
+    marginBottom: 4,
+  },
+  input: {
+    backgroundColor: '#f5fafc',
+    borderWidth: 1,
+    borderColor: '#dee3e6',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#171d1e',
+    outlineStyle: 'none',
+  } as any,
+  saveButton: {
+    backgroundColor: '#006c49',
+    borderRadius: 12,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  securityCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dee3e6',
+    padding: 16,
+    marginBottom: 24,
+  },
+  scoreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  scoreTextWrap: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  securityLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#171d1e',
+  },
+  securityDesc: {
+    fontSize: 12,
+    color: '#6d797d',
+    marginTop: 2,
+  },
+  scoreValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  scoreBarBg: {
+    height: 8,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  scoreBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  securityDivider: {
+    height: 1,
+    backgroundColor: '#dee3e6',
+    marginBottom: 14,
+  },
+  securityStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  statusDetail: {
+    flex: 1,
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6d797d',
+    marginBottom: 6,
+  },
+  statusBadge: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   bottomNav: {
     position: 'absolute',
     left: 0,
