@@ -27,12 +27,30 @@ class RegisterAPIView(CreateAPIView):
         user = serializer.save()
         
         refresh = RefreshToken.for_user(user)
-        return Response({
+        response = Response({
             "token": str(refresh.access_token),
             "refresh": str(refresh),
             "status": user.kyc_status,
             "user": UserSerializer(user).data
         }, status=status.HTTP_201_CREATED)
+        
+        response.set_cookie(
+            key="access_token",
+            value=str(refresh.access_token),
+            httponly=True,
+            samesite="Lax",
+            secure=False,
+            max_age=30 * 60,
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=str(refresh),
+            httponly=True,
+            samesite="Lax",
+            secure=False,
+            max_age=7 * 24 * 60 * 60,
+        )
+        return response
 
 
 class MeAPIView(RetrieveUpdateAPIView):
@@ -111,6 +129,74 @@ class NKAPTokenObtainPairView(TokenObtainPairView):
     serializer_class = LoginSerializer
     permission_classes = [AllowAny]
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200:
+            access_token = response.data.get("token") or response.data.get("access")
+            refresh_token = response.data.get("refresh")
+            if access_token:
+                response.set_cookie(
+                    key="access_token",
+                    value=str(access_token),
+                    httponly=True,
+                    samesite="Lax",
+                    secure=False,
+                    max_age=30 * 60,
+                )
+            if refresh_token:
+                response.set_cookie(
+                    key="refresh_token",
+                    value=str(refresh_token),
+                    httponly=True,
+                    samesite="Lax",
+                    secure=False,
+                    max_age=7 * 24 * 60 * 60,
+                )
+        return response
+
+
+class NKAPTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+        refresh_token = request.data.get("refresh") or request.COOKIES.get("refresh_token")
+        if not refresh_token:
+            return Response({"detail": "Token refresh absent"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            
+        res_data = serializer.validated_data
+        response = Response(res_data, status=status.HTTP_200_OK)
+        
+        access = res_data.get("access")
+        if access:
+            response.set_cookie(
+                key="access_token",
+                value=access,
+                httponly=True,
+                samesite="Lax",
+                secure=False,
+                max_age=30 * 60,
+            )
+            
+        new_refresh = res_data.get("refresh")
+        if new_refresh:
+            response.set_cookie(
+                key="refresh_token",
+                value=new_refresh,
+                httponly=True,
+                samesite="Lax",
+                secure=False,
+                max_age=7 * 24 * 60 * 60,
+            )
+            
+        return response
+
 
 class SubmitKYCAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -149,10 +235,17 @@ class LogoutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = LogoutSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        try:
+            serializer = LogoutSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+        except Exception:
+            pass
+        
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+        return response
 
 
 class TontineMessagesAPIView(APIView):

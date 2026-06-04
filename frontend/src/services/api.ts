@@ -2,7 +2,9 @@
 import axios from 'axios';
 import { secureStore as SecureStore } from '../utils/secureStore';
 
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 
 // Détermine dynamiquement l'URL de base du backend
 const getBaseUrl = () => {
@@ -28,9 +30,10 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: Platform.OS === 'web', // Transmet les cookies HTTP-Only automatiquement sur le web
 });
 
-// Intercepteur pour injecter automatiquement le Token JWT dans les requêtes
+// Intercepteur pour injecter automatiquement le Token JWT dans les requêtes (Mobile uniquement)
 api.interceptors.request.use(
   async (config) => {
     // Ne pas ajouter le token d'autorisation pour la connexion et l'inscription, ou les réglages publics
@@ -40,7 +43,7 @@ api.interceptors.request.use(
       config.url.includes('/settings/public')
     );
 
-    if (!isPublicRequest) {
+    if (Platform.OS !== 'web' && !isPublicRequest) {
       const token = await SecureStore.getItemAsync('user_token');
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -65,6 +68,9 @@ api.interceptors.response.use(
       await SecureStore.deleteItemAsync('user_status');
       await SecureStore.deleteItemAsync('user_full_name');
       await SecureStore.deleteItemAsync('kyc_identity_document_uri');
+      
+      // Rediriger vers la page de connexion
+      router.replace('/auth/login');
     }
     return Promise.reject(error);
   }
